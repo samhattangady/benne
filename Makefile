@@ -1,42 +1,17 @@
-# A simple Makefile for compiling small SDL projects
+CC := g++
 
-# set the compiler
-CC := gcc
+# CFLAGS := -lglfw -lGL -lGLEW
+CFLAGS := -lm -lglfw -lGL -lGLEW
+HDRS := imgui/imconfig.h  imgui/imgui.h  imgui/imgui_impl_glfw.h  imgui/imgui_impl_opengl3.h  imgui/imgui_internal.h  imgui/imstb_rectpack.h  imgui/imstb_textedit.h  imgui/imstb_truetype.h
+HDRS += shaders.h
 
-# set the compiler flags
-# CFLAGS := `sdl2-config --libs --cflags` -ggdb3 -O0 --std=c99 -Wall -lSDL2_image -lm -lGL
-CFLAGS := -ggdb3 -O2 --std=c99 -Wall -lm -lglfw -lGL -lGLEW 
-# add header files here
-HDRS :=
-
-# add source files here
-SRCS := benne.c
-
-# generate names of object files
+SRCS += ./imgui/imgui_impl_glfw.cpp ./imgui/imgui_impl_opengl3.cpp
+SRCS += ./imgui/imgui.cpp ./imgui/imgui_demo.cpp ./imgui/imgui_draw.cpp ./imgui/imgui_widgets.cpp
+SRCS += shaders.cpp
+SRCS += benne.cpp
 OBJS := $(SRCS:.c=.o)
+EXEC = benne
 
-# name of executable
-EXEC := benne
-
-# default recipe
 all: $(EXEC)
-
-showfont: showfont.c Makefile
-	$(CC) -o $@ $@.c $(CFLAGS) $(LIBS)
-
-glfont: glfont.c Makefile
-	$(CC) -o $@ $@.c $(CFLAGS) $(LIBS)
-
-# recipe for building the final executable
 $(EXEC): $(OBJS) $(HDRS) Makefile
 	$(CC) -o $@ $(OBJS) $(CFLAGS)
-
-# recipe for building object files
-#$(OBJS): $(@:.o=.c) $(HDRS) Makefile
-#    $(CC) -o $@ $(@:.o=.c) -c $(CFLAGS)
-
-# recipe to clean the workspace
-clean:
-	rm -f $(EXEC) $(OBJS)
-
-.PHONY: all clean

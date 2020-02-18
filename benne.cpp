@@ -1,3 +1,7 @@
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
+#include <stdio.h>
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -9,111 +13,17 @@
 #include <sys/inotify.h>
 #include <sys/unistd.h>
 #include <poll.h>
+#include "shaders.h"
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1 * ( EVENT_SIZE + 16 ) )
 #define SHADERFILE "main.glsl"
 
-void error_callback(int error, const char* description) {
+static void error_callback(int error, const char* description) {
     fprintf(stderr, "Error: %s\n", description);
 }
 
-char* readFile(char *filename) {
-    // https://stackoverflow.com/a/3464656/5453127
-    char *buffer = NULL;
-    int string_size, read_size;
-    FILE *handler = fopen(filename, "r");
-    if (handler) {
-        fseek(handler, 0, SEEK_END);
-        string_size = ftell(handler);
-        rewind(handler);
-        buffer = (char*) malloc(sizeof(char) * (string_size + 1) );
-        read_size = fread(buffer, sizeof(char), string_size, handler);
-        buffer[string_size] = '\0';
-        if (string_size != read_size) {
-            free(buffer);
-            buffer = NULL;
-        }
-        fclose(handler);
-     }
-     return buffer;
-}
-
-// Shader sources
-const GLchar* vertexSource = "\
-    #version 330 core\n\
-    in vec2 position;\
-    out vec2 fragCoord;\
-    uniform vec3 iResolution;\
-    void main()\
-    {\
-        // This all has to be done because I want the result to be \n\
-        // compatible with shadertoy, which has things set up this way \n\
-        fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x;\
-        fragCoord.y = ((position.y/2.0) + 0.5)*iResolution.y;\
-        gl_Position = vec4(position, 0.0, 1.0);\
-    }\
-";
-const GLchar* fragmentSourceHeader = "\
-    #version 330 core\n\
-    in vec2 fragCoord;\n\
-    out vec4 fragColor;\n\
-    uniform float iTime;\n\
-    uniform vec2 iMouse;\n\
-    uniform vec3 iResolution;\n\
-";
-const GLchar* fragmentSourceFooter = "\
-    void main()\n\
-    {\n\
-        mainImage(fragColor, fragCoord);\n\
-    }\n\
-";
-
-int compileFragmentShader(GLuint* fragmentShader) {
-    char* fragmentSourceFromFile = readFile(SHADERFILE);
-    const GLchar* fragmentSource[3] = {fragmentSourceHeader,
-                                       fragmentSourceFromFile,
-                                       fragmentSourceFooter};
-    *fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(*fragmentShader, 3, &fragmentSource, NULL);
-    glCompileShader(*fragmentShader);
-    free(fragmentSourceFromFile);
-    return 0;
-}
-
-int testShaderCompilation(GLuint* shader) {
-    GLint status;
-    glGetShaderiv(*shader, GL_COMPILE_STATUS, &status);
-    if (status != GL_TRUE) {
-        char buffer[512];
-        glGetShaderInfoLog(*shader, 512, NULL, buffer);
-        fprintf(stderr, "fragment shader failed to compile... %s\n", buffer);
-        return -1;
-    }
-    return 0;
-}
-
-int createShaderProgram(GLuint* shaderProgram, GLuint* vertexShader, GLuint* fragmentShader) {
-    *shaderProgram = glCreateProgram();
-    glAttachShader(*shaderProgram, *vertexShader);
-    glAttachShader(*shaderProgram, *fragmentShader);
-    glBindFragDataLocation(*shaderProgram, 0, "fragColor");
-    glLinkProgram(*shaderProgram);
-    {
-        GLint status;
-        glGetProgramiv(*shaderProgram, GL_LINK_STATUS, &status);
-        if(status != GL_TRUE) {
-            char buffer[512];
-            glGetProgramInfoLog(*shaderProgram, 512, NULL, buffer);
-            fprintf(stderr, "shader program failed to compile... %s\n", buffer);
-            return -1;
-        }
-    }
-    glUseProgram(*shaderProgram);
-    return 0;
-}
-
-int main(void) {
+int main(int, char**) {
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
         return -1;
@@ -158,18 +68,10 @@ int main(void) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexSource, NULL);
-    glCompileShader(vertexShader);
-    {
-        GLint status;
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
-        if (status != GL_TRUE) {
-            char buffer[512];
-            glGetShaderInfoLog(vertexShader, 512, NULL, buffer);
-            fprintf(stderr, "vertex shader failed to compile... %s\n", buffer);
-            return -1;
-        }
+    GLuint vertexShader;
+    compileVertexShader(&vertexShader);
+    if (testShaderCompilation(&vertexShader)) {
+        return -1;
     }
     GLuint fragmentShader;
     compileFragmentShader(&fragmentShader);
@@ -207,9 +109,58 @@ int main(void) {
     // be and how it is used / stored..
     int fileWatcher = inotify_add_watch(inotifyFileDesciptor, SHADERFILE, IN_MODIFY);
     gettimeofday(&startTime, NULL);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 150");
+
+    int show_another_window = 1;
+    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     while (!glfwWindowShouldClose(window)) {
-        glfwSwapBuffers(window);
+        glfwPollEvents();
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        {
+            static float f = 0.0f;
+            static int counter = 0;
+
+            ImGui::Begin("Hello, world!");
+            ImGui::Text("This is some useful text.");
+            if (ImGui::Button("Add another window"))
+                show_another_window++;
+            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
+            ImGui::ColorEdit3("clear color", (float*)&clear_color);
+
+            if (ImGui::Button("Button"))
+                counter++;
+            ImGui::SameLine();
+            ImGui::Text("counter = %d", counter);
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::End();
+        }
+        if (show_another_window)
+        {
+            int i;
+            for (i=0; i<show_another_window; i++) {
+                char *windowName = "Window ";
+                ImGui::Begin(windowName);
+                ImGui::Text("Hello from another window!");
+                if (ImGui::Button("Close Me"))
+                    show_another_window--;
+                ImGui::End();
+            }
+        }
+
+        ImGui::Render();
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        glViewport(0, 0, display_w, display_h);
         glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GL_TRUE);
@@ -256,8 +207,14 @@ int main(void) {
             glEnableVertexAttribArray(posAttrib);
             glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
         }
-    }
 
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        glfwSwapBuffers(window);
+    }
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
 }
