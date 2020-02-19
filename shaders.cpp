@@ -9,7 +9,9 @@
 #include <sys/inotify.h>
 #include <sys/unistd.h>
 #include <poll.h>
-#define SHADERFILE "main.glsl"
+#include <iostream>
+#define HELPERS "helpers.glsl"
+#define BASE "base.glsl"
 
 char* readFile(char *filename) {
     // https://stackoverflow.com/a/3464656/5453127
@@ -42,8 +44,10 @@ const GLchar* vertexSource = "\
     {\
         // This all has to be done because I want the result to be \n\
         // compatible with shadertoy, which has things set up this way \n\
-        fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x;\
-        fragCoord.y = ((position.y/2.0) + 0.5)*iResolution.y;\
+        // fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x;\n\
+        // fragCoord.y = ((position.y/2.0) + 0.5)*iResolution.y;\n\
+        fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x*2.0;\n\
+        fragCoord.y = position.y*iResolution.y;\n\
         gl_Position = vec4(position, 0.0, 1.0);\
     }\
 ";
@@ -69,21 +73,31 @@ int compileVertexShader(GLuint* vertexShader) {
     return 0;
 }
 
-int compileFragmentShader(GLuint* fragmentShader) {
-    char* fragmentSourceFromFile = readFile(SHADERFILE);
+int compileFragmentShader(GLuint* fragmentShader, GLchar** shaderSource) {
+    char* fragmentSourceHelpers = readFile(HELPERS);
+    char* fragmentSourceBase = readFile(BASE);
     int stringSize = 1;
     stringSize += strlen(fragmentSourceHeader);
-    stringSize += strlen(fragmentSourceFromFile);
+    stringSize += strlen(fragmentSourceHelpers);
+    stringSize += strlen(*shaderSource);
+    stringSize += strlen(fragmentSourceBase);
     stringSize += strlen(fragmentSourceFooter);
     GLchar* rawFragmentSource = (char*) malloc(sizeof(char) * (stringSize));
     strcat(rawFragmentSource, fragmentSourceHeader);
-    strcat(rawFragmentSource, fragmentSourceFromFile);
+    strcat(rawFragmentSource, fragmentSourceHelpers);
+    strcat(rawFragmentSource, *shaderSource);
+    strcat(rawFragmentSource, fragmentSourceBase);
     strcat(rawFragmentSource, fragmentSourceFooter);
     const GLchar* fragmentSource = rawFragmentSource;
+    std::cout << "creating shader" << std::endl;
     *fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    std::cout << "setting source" << std::endl;
     glShaderSource(*fragmentShader, 1, &fragmentSource, NULL);
+    std::cout << "compiling" << std::endl;
     glCompileShader(*fragmentShader);
-    free(fragmentSourceFromFile);
+    std::cout << "freeing" << std::endl;
+    free(fragmentSourceHelpers);
+    free(fragmentSourceBase);
     free(rawFragmentSource);
     return 0;
 }
@@ -117,6 +131,8 @@ int createShaderProgram(GLuint* shaderProgram, GLuint* vertexShader, GLuint* fra
         }
     }
     glUseProgram(*shaderProgram);
+    glDetachShader(*shaderProgram, *fragmentShader);
+    glDeleteShader(*fragmentShader);
     return 0;
 }
 

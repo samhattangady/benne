@@ -8,6 +8,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdio.h>
+#include <iostream>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/inotify.h>
@@ -17,10 +18,29 @@
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1 * ( EVENT_SIZE + 16 ) )
-#define SHADERFILE "main.glsl"
 
 static void error_callback(int error, const char* description) {
     fprintf(stderr, "Error: %s\n", description);
+}
+
+GLchar* generateFragShader(int inp) {
+    GLchar* v1 = "\n\
+    uniform float iSize;\n\
+    vec2 body1(vec3 pos) {\n\
+        return vec2(sdfSphere(pos, vec3(0.0), iSize), 1.0);\n\
+    }\
+    ";
+    GLchar* v2 = "\n\
+    uniform float iSize;\n\
+    vec2 body1(vec3 pos) {\n\
+        float d = smin(sdfSphere(pos, vec3(0.3, 0.0, 0.0), iSize),\n\
+                       sdfSphere(pos, vec3(-0.3, 0.0, 0.0), iSize),\n\
+                       0.1);\n\
+        return smin(vec2(d, 1.0);\n\
+    }\
+    ";
+    if (inp==0) return v1;
+    else return v2;
 }
 
 int main(int, char**) {
@@ -35,7 +55,7 @@ int main(int, char**) {
     GLFWwindow* window;
     int windowHeight = 450;
     int windowWidth = 800;
-    window = glfwCreateWindow(windowWidth, windowHeight, "benne", NULL, NULL);
+    window = glfwCreateWindow(windowWidth*2.0, windowHeight*2.0, "benne", NULL, NULL);
     if (!window) {
         glfwTerminate();
         return -1;
@@ -57,24 +77,33 @@ int main(int, char**) {
     GLuint vbo;
     glGenBuffers(1, &vbo);
     GLfloat vertices[] = {
-         -1.0f,  1.0f,
-         -1.0f, -1.0f,
-          1.0f, -1.0f,
+    //      -1.0f,  1.0f,
+    //      -1.0f, -1.0f,
+    //       1.0f, -1.0f,
 
-         -1.0f,  1.0f,
-          1.0f,  1.0f,
-          1.0f, -1.0f
+    //      -1.0f,  1.0f,
+    //       1.0f,  1.0f,
+    //       1.0f, -1.0f
+          -1.0f,  1.0f,
+          -1.0f,  0.0f,
+           0.0f,  0.0f,
+
+          -1.0f,  1.0f,
+           0.0f,  1.0f,
+           0.0f,  0.0f
     };
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
+    float ballSize = 0.1000000000000009;
     GLuint vertexShader;
     compileVertexShader(&vertexShader);
     if (testShaderCompilation(&vertexShader)) {
         return -1;
     }
     GLuint fragmentShader;
-    compileFragmentShader(&fragmentShader);
+    GLchar* shaderSource = generateFragShader(0);
+    compileFragmentShader(&fragmentShader, &shaderSource);
     if (testShaderCompilation(&fragmentShader)) {
         return -1;
     }
@@ -87,13 +116,16 @@ int main(int, char**) {
     GLint uniTime;
     GLint uniResolution;
     GLint uniMouse;
+    GLint uniSize;
     GLint posAttrib;
     double xpos, ypos, imousex, imousey;
 
     uniTime = glGetUniformLocation(shaderProgram, "iTime");
+    uniSize = glGetUniformLocation(shaderProgram, "iSize");
     uniMouse = glGetUniformLocation(shaderProgram, "iMouse");
     uniResolution = glGetUniformLocation(shaderProgram, "iResolution");
     glUniform3f(uniResolution, windowWidth, windowHeight, 0.0);
+    glUniform1f(uniSize, ballSize);
     glUniform2f(uniMouse, windowWidth/2.0, 0.0);
     posAttrib = glGetAttribLocation(shaderProgram, "position");
     glEnableVertexAttribArray(posAttrib);
@@ -107,8 +139,10 @@ int main(int, char**) {
     int inotifyFileDesciptor = inotify_init();
     // TODO (08 Feb 2020 sam): See what exactly the response of this is supposed to
     // be and how it is used / stored..
-    int fileWatcher = inotify_add_watch(inotifyFileDesciptor, SHADERFILE, IN_MODIFY);
+    // int fileWatcher = inotify_add_watch(inotifyFileDesciptor, SHADERFILE, IN_MODIFY);
     gettimeofday(&startTime, NULL);
+
+    std::cout << GL_MAX_FRAGMENT_UNIFORM_COMPONENTS << std::endl;
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -118,21 +152,20 @@ int main(int, char**) {
     ImGui_ImplOpenGL3_Init("#version 150");
 
     int show_another_window = 1;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    ImVec4 clear_color = ImVec4(0.15f, 0.15f, 0.20f, 1.00f);
     while (!glfwWindowShouldClose(window)) {
+        static int counter = 0;
+        int oldCounter = 0;
         glfwPollEvents();
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         {
-            static float f = 0.0f;
-            static int counter = 0;
-
             ImGui::Begin("Hello, world!");
             ImGui::Text("This is some useful text.");
             if (ImGui::Button("Add another window"))
                 show_another_window++;
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
+            ImGui::SliderFloat("float", &ballSize, 0.0f, 1.0f);
             ImGui::ColorEdit3("clear color", (float*)&clear_color);
 
             if (ImGui::Button("Button"))
@@ -169,6 +202,7 @@ int main(int, char**) {
         secondsElapsed = (currentTime.tv_sec - startTime.tv_sec) +
                          ((currentTime.tv_usec - startTime.tv_usec) / 1000000.0);
         glUniform1f(uniTime, secondsElapsed);
+        glUniform1f(uniSize, ballSize);
         glfwGetCursorPos(window, &xpos, &ypos);
         if (xpos > 0.0 && xpos < windowWidth &&
             ypos > 0.0 && ypos < windowHeight) {
@@ -177,18 +211,10 @@ int main(int, char**) {
         }
         glUniform2f(uniMouse, imousex, imousey);
 
-        struct pollfd pollWatcher = {inotifyFileDesciptor, POLLIN, 0};
-        pollReturn = poll(&pollWatcher, 1, 50);
-        if (pollReturn < -1) {
-            fprintf(stderr, "some error in waiting for file changes...\n");
-        } else if (pollReturn > 0) {
-            printf("file change detected. compiling...\n");
-            eventsLength = read(inotifyFileDesciptor, buffer, BUF_LEN);
-            if (eventsLength < 0) {
-                fprintf(stderr, "some error in inotify read\n");
-            }
-            fileWatcher = inotify_add_watch(inotifyFileDesciptor, SHADERFILE, IN_MODIFY);
-            compileFragmentShader(&fragmentShader);
+        if (oldCounter != counter) {
+            oldCounter = counter;
+            GLchar* newShaderSource = generateFragShader(counter);
+            compileFragmentShader(&fragmentShader, &newShaderSource);
             if (testShaderCompilation(&fragmentShader)) {
                 printf("shader compilation failed... continuing.\n");
                 continue;
