@@ -23,24 +23,26 @@ static void error_callback(int error, const char* description) {
     fprintf(stderr, "Error: %s\n", description);
 }
 
-GLchar* generateFragShader(int inp) {
+void generateFragShader(char** shader, float inp) {
     GLchar* v1 = "\n\
     uniform float iSize;\n\
     vec2 body1(vec3 pos) {\n\
-        return vec2(sdfSphere(pos, vec3(0.0), iSize), 1.0);\n\
+        return vec2(sdfSphere(pos, vec3(0.0), %f), 1.0);\n\
     }\
     ";
-    GLchar* v2 = "\n\
-    uniform float iSize;\n\
-    vec2 body1(vec3 pos) {\n\
-        float d = smin(sdfSphere(pos, vec3(0.3, 0.0, 0.0), iSize),\n\
-                       sdfSphere(pos, vec3(-0.3, 0.0, 0.0), iSize),\n\
-                       0.1);\n\
-        return smin(vec2(d, 1.0);\n\
-    }\
-    ";
-    if (inp==0) return v1;
-    else return v2;
+    sprintf(*shader, v1, inp);
+    // return resp;
+    // GLchar* v2 = "\n\
+    // uniform float iSize;\n\
+    // vec2 body1(vec3 pos) {\n\
+    //     float d = smin(sdfSphere(pos, vec3(0.3, 0.0, 0.0), iSize),\n\
+    //                    sdfSphere(pos, vec3(-0.3, 0.0, 0.0), iSize),\n\
+    //                    iSize);\n\
+    //     return vec2(d, 1.0);\n\
+    // }\
+    // ";
+    // if (inp==0.0) return v1;
+    // else return v2;
 }
 
 int main(int, char**) {
@@ -95,18 +97,21 @@ int main(int, char**) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    float ballSize = 0.1000000000000009;
+    float ballSize = 0.10009;
     GLuint vertexShader;
     compileVertexShader(&vertexShader);
     if (testShaderCompilation(&vertexShader)) {
         return -1;
     }
     GLuint fragmentShader;
-    GLchar* shaderSource = generateFragShader(0);
+    GLchar* shaderSource = (char*) malloc(sizeof(char) * (10000));
+    shaderSource[0] = NULL;
+    generateFragShader(&shaderSource, ballSize);
     compileFragmentShader(&fragmentShader, &shaderSource);
     if (testShaderCompilation(&fragmentShader)) {
         return -1;
     }
+    free(shaderSource);
 
     GLuint shaderProgram;
     if (createShaderProgram(&shaderProgram, &vertexShader, &fragmentShader)) {
@@ -151,11 +156,11 @@ int main(int, char**) {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 150");
 
+    static int counter = 0;
+    int oldBallSize = ballSize;
     int show_another_window = 1;
     ImVec4 clear_color = ImVec4(0.15f, 0.15f, 0.20f, 1.00f);
     while (!glfwWindowShouldClose(window)) {
-        static int counter = 0;
-        int oldCounter = 0;
         glfwPollEvents();
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -167,7 +172,6 @@ int main(int, char**) {
                 show_another_window++;
             ImGui::SliderFloat("float", &ballSize, 0.0f, 1.0f);
             ImGui::ColorEdit3("clear color", (float*)&clear_color);
-
             if (ImGui::Button("Button"))
                 counter++;
             ImGui::SameLine();
@@ -211,14 +215,20 @@ int main(int, char**) {
         }
         glUniform2f(uniMouse, imousex, imousey);
 
-        if (oldCounter != counter) {
-            oldCounter = counter;
-            GLchar* newShaderSource = generateFragShader(counter);
-            compileFragmentShader(&fragmentShader, &newShaderSource);
+        // TODO (20 Feb 2020 sam): Figure out the best indicator to recompile shaders
+        // don't go around comparing floats kids...
+        // if oldBallSize != ballSize... Also I have _no_ idea why this ain't working
+        if (oldBallSize<ballSize-0.01 || oldBallSize>ballSize+0.01) {
+            oldBallSize = ballSize;
+            shaderSource = (char*) malloc(sizeof(char) * (10000));
+            shaderSource[0] = NULL;
+            generateFragShader(&shaderSource, ballSize);
+            compileFragmentShader(&fragmentShader, &shaderSource);
             if (testShaderCompilation(&fragmentShader)) {
                 printf("shader compilation failed... continuing.\n");
                 continue;
             }
+            free(shaderSource);
             printf("compiled fragment shader...\n");
             if (createShaderProgram(&shaderProgram, &vertexShader, &fragmentShader)) {
                 printf("shader compilation failed... continuing.\n");
