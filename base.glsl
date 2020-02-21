@@ -1,8 +1,3 @@
-vec4 distanceField(vec3 position) {
-	vec2 d = body1(position);
-    return vec4(d, 0.0, 0.0);
-}
-
 vec3 calcNormal(vec3 p) {
     // We calculate the normal by finding the gradient of the field at the
     // point that we are interested in. We can find the gradient by getting

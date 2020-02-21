@@ -10,10 +10,11 @@
 #include <sys/unistd.h>
 #include <poll.h>
 #include <iostream>
+#include <fstream>
 #define HELPERS "helpers.glsl"
 #define BASE "base.glsl"
 
-char* readFile(char *filename) {
+char* read_file(char *filename) {
     // https://stackoverflow.com/a/3464656/5453127
     char *buffer = NULL;
     int string_size, read_size;
@@ -30,8 +31,8 @@ char* readFile(char *filename) {
             buffer = NULL;
         }
         fclose(handler);
-     }
-     return buffer;
+    }
+    return buffer;
 }
 
 // Shader sources
@@ -44,14 +45,14 @@ const GLchar* vertexSource = "\
     {\
         // This all has to be done because I want the result to be \n\
         // compatible with shadertoy, which has things set up this way \n\
-        // fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x;\n\
-        // fragCoord.y = ((position.y/2.0) + 0.5)*iResolution.y;\n\
-        fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x*2.0;\n\
-        fragCoord.y = position.y*iResolution.y;\n\
+        fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x;\n\
+        fragCoord.y = ((position.y/2.0) + 0.5)*iResolution.y;\n\
+        // fragCoord.x = ((position.x/2.0) + 0.5)*iResolution.x*2.0;\n\
+        // fragCoord.y = position.y*iResolution.y;\n\
         gl_Position = vec4(position, 0.0, 1.0);\
     }\
 ";
-const GLchar* fragmentSourceHeader = "\
+const GLchar* fragment_source_header = "\
     #version 330 core\n\
     in vec2 fragCoord;\n\
     out vec4 fragColor;\n\
@@ -59,7 +60,7 @@ const GLchar* fragmentSourceHeader = "\
     uniform vec2 iMouse;\n\
     uniform vec3 iResolution;\n\
 ";
-const GLchar* fragmentSourceFooter = "\
+const GLchar* fragment_source_footer = "\
     void main()\n\
     {\n\
         mainImage(fragColor, fragCoord);\n\
@@ -73,31 +74,30 @@ int compileVertexShader(GLuint* vertexShader) {
     return 0;
 }
 
-int compileFragmentShader(GLuint* fragmentShader, GLchar** shaderSource) {
-    char* fragmentSourceHelpers = readFile(HELPERS);
-    char* fragmentSourceBase = readFile(BASE);
-    int stringSize = 0;
-    stringSize += strlen(fragmentSourceHeader);
-    stringSize += strlen(fragmentSourceHelpers);
-    stringSize += strlen(*shaderSource);
-    stringSize += strlen(fragmentSourceBase);
-    stringSize += strlen(fragmentSourceFooter);
-    GLchar* rawFragmentSource = (char*) malloc(sizeof(char) * (stringSize));
-    rawFragmentSource[0] = NULL;
-    std::cout << rawFragmentSource << std::endl;
-    strcat(rawFragmentSource, fragmentSourceHeader);
-    strcat(rawFragmentSource, fragmentSourceHelpers);
-    strcat(rawFragmentSource, *shaderSource);
-    strcat(rawFragmentSource, fragmentSourceBase);
-    strcat(rawFragmentSource, fragmentSourceFooter);
-    strcat(rawFragmentSource, "\0");
-    const GLchar* fragmentSource = rawFragmentSource;
-    *fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(*fragmentShader, 1, &fragmentSource, NULL);
-    glCompileShader(*fragmentShader);
-    free(fragmentSourceHelpers);
-    free(fragmentSourceBase);
-    free(rawFragmentSource);
+int compile_fragment_shader(GLuint* fragment_shader, GLchar** shader_source) {
+    char* fragment_source_helpers = read_file(HELPERS);
+    char* fragment_source_base = read_file(BASE);
+    int string_size = 1;
+    string_size += strlen(fragment_source_header);
+    string_size += strlen(fragment_source_helpers);
+    string_size += strlen(*shader_source);
+    string_size += strlen(fragment_source_base);
+    string_size += strlen(fragment_source_footer);
+    GLchar* raw_fragment_source = (char*) malloc(sizeof(char) * (string_size));
+    raw_fragment_source[0] = '\0';
+    strcat(raw_fragment_source, fragment_source_header);
+    strcat(raw_fragment_source, fragment_source_helpers);
+    strcat(raw_fragment_source, *shader_source);
+    strcat(raw_fragment_source, fragment_source_base);
+    strcat(raw_fragment_source, fragment_source_footer);
+    strcat(raw_fragment_source, "\0");
+    const GLchar* fragment_source = raw_fragment_source;
+    *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(*fragment_shader, 1, &fragment_source, NULL);
+    glCompileShader(*fragment_shader);
+    free(fragment_source_helpers);
+    free(fragment_source_base);
+    free(raw_fragment_source);
     return 0;
 }
 
