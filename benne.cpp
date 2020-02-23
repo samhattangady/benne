@@ -24,20 +24,6 @@ static void error_callback(int error, const char* description) {
     fprintf(stderr, "Error: %s\n", description);
 }
 
-char* generate_frag_shader(struct Sphere* spheres, int length) {
-    char* body_functions = distance_field_functions(spheres, length);
-    char* body_checks = distance_field_caller(length);
-    int string_size = 10+strlen(body_functions)+strlen(body_checks);
-    char* fragment_shader = (char*) malloc(sizeof(char)* (string_size));
-    fragment_shader[0] = '\0';
-    strcat(fragment_shader, body_functions);
-    strcat(fragment_shader, body_checks);
-    strcat(fragment_shader, "\0");
-    free(body_functions);
-    free(body_checks);
-    return fragment_shader;
-}
-
 int main(int, char**) {
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
@@ -48,9 +34,9 @@ int main(int, char**) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
     GLFWwindow* window;
-    int windowHeight = 450;
-    int windowWidth = 800;
-    window = glfwCreateWindow(windowWidth*2.0, windowHeight*2.0, "benne", NULL, NULL);
+    int window_height = 450;
+    int window_width = 800;
+    window = glfwCreateWindow(window_width*2.0, window_height*2.0, "benne", NULL, NULL);
     if (!window) {
         glfwTerminate();
         return -1;
@@ -87,47 +73,46 @@ int main(int, char**) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    float ballSize = 0.10009;
-    GLuint vertexShader;
-    compileVertexShader(&vertexShader);
-    if (testShaderCompilation(&vertexShader)) {
+    GLuint vertex_shader;
+    compile_vertex_shader(&vertex_shader);
+    if (test_shader_compilation(&vertex_shader)) {
         return -1;
     }
     char* shader_source = generate_frag_shader(shapes, number_of_spheres);
-    GLuint fragmentShader;
-    compile_fragment_shader(&fragmentShader, &shader_source);
-    if (testShaderCompilation(&fragmentShader)) {
+    GLuint fragment_shader;
+    compile_fragment_shader(&fragment_shader, &shader_source);
+    if (test_shader_compilation(&fragment_shader)) {
         return -1;
     }
     free(shader_source);
 
-    GLuint shaderProgram;
-    if (createShaderProgram(&shaderProgram, &vertexShader, &fragmentShader)) {
+    GLuint shader_program;
+    if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader)) {
         return -1;
     }
 
-    GLint uniTime;
-    GLint uniResolution;
-    GLint uniMouse;
-    GLint posAttrib;
+    GLint uni_time;
+    GLint uni_resolution;
+    GLint uni_mouse;
+    GLint position_attribute;
     double xpos, ypos, imousex, imousey;
 
-    uniTime = glGetUniformLocation(shaderProgram, "iTime");
-    uniMouse = glGetUniformLocation(shaderProgram, "iMouse");
-    uniResolution = glGetUniformLocation(shaderProgram, "iResolution");
-    glUniform3f(uniResolution, windowWidth, windowHeight, 0.0);
-    glUniform2f(uniMouse, windowWidth/2.0, 0.0);
-    posAttrib = glGetAttribLocation(shaderProgram, "position");
-    glEnableVertexAttribArray(posAttrib);
-    glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    uni_time = glGetUniformLocation(shader_program, "iTime");
+    uni_mouse = glGetUniformLocation(shader_program, "iMouse");
+    uni_resolution = glGetUniformLocation(shader_program, "iResolution");
+    glUniform3f(uni_resolution, window_width, window_height, 0.0);
+    glUniform2f(uni_mouse, window_width/2.0, 0.0);
+    position_attribute = glGetAttribLocation(shader_program, "position");
+    glEnableVertexAttribArray(position_attribute);
+    glVertexAttribPointer(position_attribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-    struct timeval startTime;
-    struct timeval currentTime;
+    struct timeval start_time;
+    struct timeval current_time;
     char buffer[BUF_LEN];
-    int eventsLength, pollReturn;
-    float secondsElapsed = 0.0f;
-    int inotifyFileDesciptor = inotify_init();
-    gettimeofday(&startTime, NULL);
+    int events_length, poll_return;
+    float seconds_elapsed = 0.0f;
+    int inotify_file_descriptor = inotify_init();
+    gettimeofday(&start_time, NULL);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -136,7 +121,6 @@ int main(int, char**) {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 150");
 
-    int oldBallSize = ballSize;
     ImVec4 clear_color = ImVec4(0.15f, 0.15f, 0.20f, 1.00f);
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -147,6 +131,7 @@ int main(int, char**) {
         {
             ImGui::Begin("Create a Sphere...");
             ImGui::Text("number of spheres = %i", number_of_spheres);
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
             if (ImGui::Button("Click to create sphere")) {
                 shapes[number_of_spheres].id = number_of_spheres * 1.0;
                 shapes[number_of_spheres].x = 1.0;
@@ -163,10 +148,10 @@ int main(int, char**) {
             char windowName[30];
             sprintf(windowName, "Sphere %i", i);
             ImGui::Begin(windowName);
-            ImGui::SliderFloat("x", &shapes[i].x, -5.0f, 5.0f);
-            ImGui::SliderFloat("y", &shapes[i].y, -5.0f, 5.0f);
-            ImGui::SliderFloat("z", &shapes[i].z, -5.0f, 5.0f);
-            ImGui::SliderFloat("r", &shapes[i].r, -5.0f, 5.0f);
+            ImGui::SliderFloat("x", &shapes[i].x, -3.0f, 3.0f);
+            ImGui::SliderFloat("y", &shapes[i].y, -3.0f, 3.0f);
+            ImGui::SliderFloat("z", &shapes[i].z, -3.0f, 3.0f);
+            ImGui::SliderFloat("r", &shapes[i].r, 0.0f, 2.0f);
             ImGui::End();
         }
         // {
@@ -184,20 +169,6 @@ int main(int, char**) {
         //     ImGui::End();
         // }
 
-        // if (show_another_window)
-        // {
-        //     int i;
-        //     for (i=0; i<show_another_window; i++) {
-        //         char *windowNameTemplate = "Window %i";
-        //         char *windowName = (char*) malloc(sizeof(char) * (strlen(windowNameTemplate)+20));
-        //         sprintf(windowName, windowNameTemplate, i);
-        //         ImGui::Begin(windowName);
-        //         ImGui::Text("Hello from another window!");
-        //         if (ImGui::Button("Close Me"))
-        //             show_another_window--;
-        //         ImGui::End();
-        //     }
-        // }
         ImGui::Render();
 
         int display_w, display_h;
@@ -211,46 +182,39 @@ int main(int, char**) {
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GL_TRUE);
         glfwPollEvents();
-        gettimeofday(&currentTime, NULL);
-        secondsElapsed = (currentTime.tv_sec - startTime.tv_sec) +
-                         ((currentTime.tv_usec - startTime.tv_usec) / 1000000.0);
-        glUniform1f(uniTime, secondsElapsed);
+        gettimeofday(&current_time, NULL);
+        seconds_elapsed = (current_time.tv_sec - start_time.tv_sec) +
+                         ((current_time.tv_usec - start_time.tv_usec) / 1000000.0);
+        glUniform1f(uni_time, seconds_elapsed);
         glfwGetCursorPos(window, &xpos, &ypos);
-        if (xpos > 0.0 && xpos < windowWidth &&
-            ypos > 0.0 && ypos < windowHeight) {
+        if (xpos > 0.0 && xpos < window_width &&
+            ypos > 0.0 && ypos < window_height) {
             imousex = xpos;
             imousey = ypos;
         }
-        glUniform2f(uniMouse, imousex, imousey);
+        glUniform2f(uni_mouse, imousex, imousey);
 
-        // TODO (20 Feb 2020 sam): Figure out the best indicator to recompile shaders
-        // don't go around comparing floats kids...
-        // if oldBallSize != ballSize... Also I have _no_ idea why this ain't working
-        if (oldBallSize<ballSize-0.01 || oldBallSize>ballSize+0.01) {
-            oldBallSize = ballSize;
-            shader_source = generate_frag_shader(shapes, number_of_spheres);
-            compile_fragment_shader(&fragmentShader, &shader_source);
-            if (testShaderCompilation(&fragmentShader)) {
-                printf("shader compilation failed... continuing.\n");
-                continue;
-            }
-            if (createShaderProgram(&shaderProgram, &vertexShader, &fragmentShader)) {
-                printf("shader compilation failed... continuing.\n");
-                continue;
-            }
-            free(shader_source);
-            uniTime = glGetUniformLocation(shaderProgram, "iTime");
-            uniResolution = glGetUniformLocation(shaderProgram, "iResolution");
-            glUniform3f(uniResolution, windowWidth, windowHeight, 0.0);
-            glUniform2f(uniMouse, imousex, imousey);
-            posAttrib = glGetAttribLocation(shaderProgram, "position");
-            glEnableVertexAttribArray(posAttrib);
-            glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        shader_source = generate_frag_shader(shapes, number_of_spheres);
+        compile_fragment_shader(&fragment_shader, &shader_source);
+        if (test_shader_compilation(&fragment_shader)) {
+            printf("shader compilation failed... continuing.\n");
+            continue;
         }
+        if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader)) {
+            printf("shader compilation failed... continuing.\n");
+            continue;
+        }
+        free(shader_source);
+        uni_time = glGetUniformLocation(shader_program, "iTime");
+        uni_resolution = glGetUniformLocation(shader_program, "iResolution");
+        glUniform3f(uni_resolution, window_width, window_height, 0.0);
+        glUniform2f(uni_mouse, imousex, imousey);
+        position_attribute = glGetAttribLocation(shader_program, "position");
+        glEnableVertexAttribArray(position_attribute);
+        glVertexAttribPointer(position_attribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
-        // break;
     }
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

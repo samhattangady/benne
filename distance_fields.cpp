@@ -54,3 +54,17 @@ char* distance_field_caller(int length) {
     free(temp_string);
     return caller;
 }
+
+char* generate_frag_shader(struct Sphere* spheres, int length) {
+    char* body_functions = distance_field_functions(spheres, length);
+    char* body_checks = distance_field_caller(length);
+    int string_size = 10+strlen(body_functions)+strlen(body_checks);
+    char* fragment_shader = (char*) malloc(sizeof(char)* (string_size));
+    fragment_shader[0] = '\0';
+    strcat(fragment_shader, body_functions);
+    strcat(fragment_shader, body_checks);
+    strcat(fragment_shader, "\0");
+    free(body_functions);
+    free(body_checks);
+    return fragment_shader;
+}

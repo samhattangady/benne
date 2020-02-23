@@ -8,5 +8,13 @@ struct Sphere {
     float m;  // material
 };
 
-char* distance_field_functions(struct Sphere* sphere, int length);
+struct Node {
+    Sphere sphere;
+    struct Node* children;
+    int number_of_children;
+    int operation;
+};
+
+char* distance_field_functions(struct Sphere* spheres, int length);
 char* distance_field_caller(int length);
+char* generate_frag_shader(struct Sphere* spheres, int length);

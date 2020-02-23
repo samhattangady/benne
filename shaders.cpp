@@ -23,7 +23,7 @@ char* read_file(char *filename) {
         fseek(handler, 0, SEEK_END);
         string_size = ftell(handler);
         rewind(handler);
-        buffer = (char*) malloc(sizeof(char) * (string_size + 1) );
+        buffer = (char*) malloc(sizeof(char) * (string_size + 5) );
         read_size = fread(buffer, sizeof(char), string_size, handler);
         buffer[string_size] = '\0';
         if (string_size != read_size) {
@@ -36,7 +36,7 @@ char* read_file(char *filename) {
 }
 
 // Shader sources
-const GLchar* vertexSource = "\
+const GLchar* vertex_source = "\
     #version 330 core\n\
     in vec2 position;\
     out vec2 fragCoord;\
@@ -67,10 +67,10 @@ const GLchar* fragment_source_footer = "\
     }\n\
 ";
 
-int compileVertexShader(GLuint* vertexShader) {
-    *vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(*vertexShader, 1, &vertexSource, NULL);
-    glCompileShader(*vertexShader);
+int compile_vertex_shader(GLuint* vertex_shader) {
+    *vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(*vertex_shader, 1, &vertex_source, NULL);
+    glCompileShader(*vertex_shader);
     return 0;
 }
 
@@ -101,7 +101,7 @@ int compile_fragment_shader(GLuint* fragment_shader, GLchar** shader_source) {
     return 0;
 }
 
-int testShaderCompilation(GLuint* shader) {
+int test_shader_compilation(GLuint* shader) {
     GLint status;
     glGetShaderiv(*shader, GL_COMPILE_STATUS, &status);
     if (status != GL_TRUE) {
@@ -113,25 +113,25 @@ int testShaderCompilation(GLuint* shader) {
     return 0;
 }
 
-int createShaderProgram(GLuint* shaderProgram, GLuint* vertexShader, GLuint* fragmentShader) {
-    *shaderProgram = glCreateProgram();
-    glAttachShader(*shaderProgram, *vertexShader);
-    glAttachShader(*shaderProgram, *fragmentShader);
-    glBindFragDataLocation(*shaderProgram, 0, "fragColor");
-    glLinkProgram(*shaderProgram);
+int create_shader_program(GLuint* shader_program, GLuint* vertex_shader, GLuint* fragment_shader) {
+    *shader_program = glCreateProgram();
+    glAttachShader(*shader_program, *vertex_shader);
+    glAttachShader(*shader_program, *fragment_shader);
+    glBindFragDataLocation(*shader_program, 0, "fragColor");
+    glLinkProgram(*shader_program);
     {
         GLint status;
-        glGetProgramiv(*shaderProgram, GL_LINK_STATUS, &status);
+        glGetProgramiv(*shader_program, GL_LINK_STATUS, &status);
         if(status != GL_TRUE) {
             char buffer[512];
-            glGetProgramInfoLog(*shaderProgram, 512, NULL, buffer);
+            glGetProgramInfoLog(*shader_program, 512, NULL, buffer);
             fprintf(stderr, "shader program failed to compile... %s\n", buffer);
             return -1;
         }
     }
-    glUseProgram(*shaderProgram);
-    glDetachShader(*shaderProgram, *fragmentShader);
-    glDeleteShader(*fragmentShader);
+    glUseProgram(*shader_program);
+    glDetachShader(*shader_program, *fragment_shader);
+    glDeleteShader(*fragment_shader);
     return 0;
 }
 
