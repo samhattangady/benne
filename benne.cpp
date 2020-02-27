@@ -1,6 +1,4 @@
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_opengl3.h"
+#include "imgui_pch.h"
 #include <stdio.h>
 #define GLEW_STATIC
 #include <GL/glew.h>
@@ -8,7 +6,6 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdio.h>
-#include <iostream>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/inotify.h>
@@ -21,7 +18,52 @@
 #define BUF_LEN     ( 1 * ( EVENT_SIZE + 16 ) )
 
 static void error_callback(int error, const char* description) {
-    fprintf(stderr, "Error: %s\n", description);
+    fprintf(stderr, "Errors: %s\n", description);
+}
+
+void add_child(BenneNode* node) {
+    attach_node(
+        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.1 },
+        node->sphere.x, node->sphere.y, node->sphere.z,
+        node->sphere.r, node->sphere.m,
+        node
+    );
+}
+
+int get_op_id(DistanceFieldOperationEnum op) {
+    switch (op) {
+        case DISTANCE_FIELD_BLEND_ADD: return 0;
+        case DISTANCE_FIELD_BLEND_SUBTRACT: return 1;
+        case DISTANCE_FIELD_BLEND_UNION: return 2;
+    }
+}
+
+void draw_node_editor(BenneNode* node) {
+    string name = string_from("Shape");
+    append_sprintf(&name, " %i", node->id);
+    if (ImGui::TreeNode(name.text)) {
+        int op_id = get_op_id(node->operation.operation);
+        ImGui::Combo("Operation", &op_id, "Add\0Subtract\0Union\0");
+        switch (op_id) {
+            case 0: node->operation.operation = DISTANCE_FIELD_BLEND_ADD; break;
+            case 1: node->operation.operation = DISTANCE_FIELD_BLEND_SUBTRACT; break;
+            case 2: node->operation.operation = DISTANCE_FIELD_BLEND_UNION; break;
+        }
+        ImGui::SliderFloat("Extent", &(node->operation.extent), -0.0, 1.0);
+        ImGui::SliderFloat3("Position", &(node->sphere.x), -1.0, 1.0);
+        ImGui::SliderFloat("Radius", &(node->sphere.r), -0.0, 2.0);
+        ImGui::Text("Radius: %.3f, Material: %.1f", node->sphere.r,
+                     node->sphere.m);
+        for (int i=0; i<node->number_of_children; i++)
+            draw_node_editor(node->children[i]);
+        if (ImGui::Button("Add shape"))
+            add_child(node);
+        ImGui::SameLine();
+        if (ImGui::Button("Delete shape"))
+            dispose_node(node);
+        ImGui::TreePop();
+    }
+    dispose_string(&name);
 }
 
 int main(int, char**) {
@@ -51,9 +93,35 @@ int main(int, char**) {
     }
 
     int number_of_spheres = 1;
-    struct Sphere *shapes = (struct Sphere*) malloc(sizeof(struct Sphere) * 100);
-    shapes[0] = {0.0, 0.0, 0.0, 0.0, 0.2, 1.0};
-    // shapes[0] = NULL;
+    BenneNode* base = attach_node(
+            { DISTANCE_FIELD_BLEND_ADD, 0.0 },
+            0.0, 0.0, 0.0,
+            0.3, 1.0,
+            NULL);
+    BenneNode* attachment = attach_node(
+        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.1 },
+        0.3, 0.0, 0.0,
+        0.1, 3.0,
+        base
+    );
+    BenneNode* a = attach_node(
+        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.1 },
+        -0.3, 0.1, -0.0,
+        0.1, 3.0,
+        attachment
+    );
+    BenneNode* b = attach_node(
+        DistanceFieldOperation { DISTANCE_FIELD_BLEND_SUBTRACT, 0.01 },
+        0.3, 0.1, 0.0,
+        0.15, 1.0,
+        attachment
+    );
+    BenneNode* c = attach_node(
+        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.3 },
+        0.1, 0.4, 0.3,
+        0.4, 1.0,
+        b
+    );
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -74,22 +142,19 @@ int main(int, char**) {
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     GLuint vertex_shader;
-    compile_vertex_shader(&vertex_shader);
-    if (test_shader_compilation(&vertex_shader)) {
-        return -1;
-    }
-    char* shader_source = generate_frag_shader(shapes, number_of_spheres);
     GLuint fragment_shader;
-    compile_fragment_shader(&fragment_shader, &shader_source);
-    if (test_shader_compilation(&fragment_shader)) {
-        return -1;
-    }
-    free(shader_source);
-
     GLuint shader_program;
-    if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader)) {
+
+    compile_vertex_shader(&vertex_shader);
+    if (test_shader_compilation(&vertex_shader))
         return -1;
-    }
+    string shader_source = generate_frag_shader(base);
+    compile_fragment_shader(&fragment_shader, &shader_source);
+    if (test_shader_compilation(&fragment_shader))
+        return -1;
+    dispose_string(&shader_source);
+    if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader))
+        return -1;
 
     GLint uni_time;
     GLint uni_resolution;
@@ -128,46 +193,12 @@ int main(int, char**) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        {
-            ImGui::Begin("Create a Sphere...");
-            ImGui::Text("number of spheres = %i", number_of_spheres);
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            if (ImGui::Button("Click to create sphere")) {
-                shapes[number_of_spheres].id = number_of_spheres * 1.0;
-                shapes[number_of_spheres].x = 1.0;
-                shapes[number_of_spheres].y = 1.0 - 0.01*number_of_spheres;
-                shapes[number_of_spheres].z = 1.0;
-                shapes[number_of_spheres].r = 0.5;
-                shapes[number_of_spheres].m = 1.0;
-                number_of_spheres++;
-            }
-            ImGui::End();
-        }
+        ImGui::ShowDemoWindow();
 
-        for (int i=0; i<number_of_spheres; i++) {
-            char windowName[30];
-            sprintf(windowName, "Sphere %i", i);
-            ImGui::Begin(windowName);
-            ImGui::SliderFloat("x", &shapes[i].x, -3.0f, 3.0f);
-            ImGui::SliderFloat("y", &shapes[i].y, -3.0f, 3.0f);
-            ImGui::SliderFloat("z", &shapes[i].z, -3.0f, 3.0f);
-            ImGui::SliderFloat("r", &shapes[i].r, 0.0f, 2.0f);
-            ImGui::End();
-        }
-        // {
-        //     ImGui::Begin("Hello, world!");
-        //     ImGui::Text("This is some useful text.");
-        //     if (ImGui::Button("Add another window"))
-        //         show_another_window++;
-        //     ImGui::SliderFloat("float", &ballSize, 0.0f, 1.0f);
-        //     ImGui::ColorEdit3("clear color", (float*)&clear_color);
-        //     if (ImGui::Button("Button"))
-        //         counter++;
-        //     ImGui::SameLine();
-        //     ImGui::Text("counter = %d", counter);
-        //     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        //     ImGui::End();
-        // }
+        ImGui::Begin("Edit shapes.");
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        draw_node_editor(base);
+        ImGui::End();
 
         ImGui::Render();
 
@@ -194,17 +225,13 @@ int main(int, char**) {
         }
         glUniform2f(uni_mouse, imousex, imousey);
 
-        shader_source = generate_frag_shader(shapes, number_of_spheres);
+        shader_source = generate_frag_shader(base);
         compile_fragment_shader(&fragment_shader, &shader_source);
-        if (test_shader_compilation(&fragment_shader)) {
-            printf("shader compilation failed... continuing.\n");
-            continue;
-        }
-        if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader)) {
-            printf("shader compilation failed... continuing.\n");
-            continue;
-        }
-        free(shader_source);
+        if (test_shader_compilation(&fragment_shader))
+            return -1;
+        dispose_string(&shader_source);
+        if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader))
+            return -1;
         uni_time = glGetUniformLocation(shader_program, "iTime");
         uni_resolution = glGetUniformLocation(shader_program, "iResolution");
         glUniform3f(uni_resolution, window_width, window_height, 0.0);

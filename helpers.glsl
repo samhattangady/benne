@@ -81,6 +81,7 @@ float smin(float d1, float d2, float k) {
     return min(d1, d2) - h*h*0.25/k;
 }
 float smax(float d1, float d2, float k) {
+    if (k < 0.001) return max(d1, d2);
     float h = max(k-abs(d1-d2),0.0);
     return max(d1, d2) + h*h*0.25/k;
 }

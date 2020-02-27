@@ -11,9 +11,12 @@
 #include <poll.h>
 #include <iostream>
 #include <fstream>
+#include "benne_string.h"
 #define HELPERS "helpers.glsl"
 #define BASE "base.glsl"
 
+// TODO (27 Feb 2020 sam): Move this somewhere else. Doesn't really make so much
+// sense here. Also should probably return a string?
 char* read_file(char *filename) {
     // https://stackoverflow.com/a/3464656/5453127
     char *buffer = NULL;
@@ -52,7 +55,7 @@ const GLchar* vertex_source = "\
         gl_Position = vec4(position, 0.0, 1.0);\
     }\
 ";
-const GLchar* fragment_source_header = "\
+GLchar* fragment_source_header = "\
     #version 330 core\n\
     in vec2 fragCoord;\n\
     out vec4 fragColor;\n\
@@ -60,7 +63,7 @@ const GLchar* fragment_source_header = "\
     uniform vec2 iMouse;\n\
     uniform vec3 iResolution;\n\
 ";
-const GLchar* fragment_source_footer = "\
+GLchar* fragment_source_footer = "\
     void main()\n\
     {\n\
         mainImage(fragColor, fragCoord);\n\
@@ -74,30 +77,20 @@ int compile_vertex_shader(GLuint* vertex_shader) {
     return 0;
 }
 
-int compile_fragment_shader(GLuint* fragment_shader, GLchar** shader_source) {
+int compile_fragment_shader(GLuint* fragment_shader, string* shader_source) {
     char* fragment_source_helpers = read_file(HELPERS);
     char* fragment_source_base = read_file(BASE);
-    int string_size = 1;
-    string_size += strlen(fragment_source_header);
-    string_size += strlen(fragment_source_helpers);
-    string_size += strlen(*shader_source);
-    string_size += strlen(fragment_source_base);
-    string_size += strlen(fragment_source_footer);
-    GLchar* raw_fragment_source = (char*) malloc(sizeof(char) * (string_size));
-    raw_fragment_source[0] = '\0';
-    strcat(raw_fragment_source, fragment_source_header);
-    strcat(raw_fragment_source, fragment_source_helpers);
-    strcat(raw_fragment_source, *shader_source);
-    strcat(raw_fragment_source, fragment_source_base);
-    strcat(raw_fragment_source, fragment_source_footer);
-    strcat(raw_fragment_source, "\0");
-    const GLchar* fragment_source = raw_fragment_source;
+    string fragment_source = empty_string();
+    append_sprintf(&fragment_source, fragment_source_header);
+    append_sprintf(&fragment_source, fragment_source_helpers);
+    append_string(&fragment_source, shader_source);
+    append_sprintf(&fragment_source, fragment_source_base);
+    append_sprintf(&fragment_source, fragment_source_footer);
     *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(*fragment_shader, 1, &fragment_source, NULL);
+    glShaderSource(*fragment_shader, 1, &(fragment_source.text), NULL);
     glCompileShader(*fragment_shader);
     free(fragment_source_helpers);
     free(fragment_source_base);
-    free(raw_fragment_source);
     return 0;
 }
 
