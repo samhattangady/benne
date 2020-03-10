@@ -21,16 +21,18 @@ static void error_callback(int error, const char* description) {
     fprintf(stderr, "Errors: %s\n", description);
 }
 
-void add_child(BenneNode* node) {
-    attach_node(
-        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.1 },
-        node->sphere.x, node->sphere.y, node->sphere.z,
-        node->sphere.r, node->sphere.m,
-        node
-    );
-}
+// void add_child(BenneNode* node, df_heap* heap) {
+//     attach_node(
+//         { DISTANCE_FIELD_BLEND_ADD, 0.01 },
+//         generate_sphere(
+//             heap,
+//             0.0, 0.0, 0.0,
+//             0.3, 1.0
+//         ),
+//         node);
+// }
 
-int get_op_id(DistanceFieldOperationEnum op) {
+int get_op_id(df_operation_enum op) {
     switch (op) {
         case DISTANCE_FIELD_BLEND_ADD: return 0;
         case DISTANCE_FIELD_BLEND_SUBTRACT: return 1;
@@ -38,29 +40,41 @@ int get_op_id(DistanceFieldOperationEnum op) {
     }
 }
 
-void draw_node_editor(BenneNode* node) {
+void draw_node_editor(df_heap* heap, unsigned int index) {
     string name = string_from("Shape");
-    append_sprintf(&name, " %i", node->id);
+    append_sprintf(&name, " %i", index);
+    df_node* node = &heap->nodes[index];
+    df_operation* operation = &heap->operations[index];
     if (ImGui::TreeNode(name.text)) {
-        int op_id = get_op_id(node->operation.operation);
-        ImGui::Combo("Operation", &op_id, "Add\0Subtract\0Union\0");
+        int op_id = get_op_id(operation->operation);
+        ImGui::Combo("Op", &op_id, "Add\0Subtract\0Union\0");
         switch (op_id) {
-            case 0: node->operation.operation = DISTANCE_FIELD_BLEND_ADD; break;
-            case 1: node->operation.operation = DISTANCE_FIELD_BLEND_SUBTRACT; break;
-            case 2: node->operation.operation = DISTANCE_FIELD_BLEND_UNION; break;
+            case 0: operation->operation = DISTANCE_FIELD_BLEND_ADD; break;
+            case 1: operation->operation = DISTANCE_FIELD_BLEND_SUBTRACT; break;
+            case 2: operation->operation = DISTANCE_FIELD_BLEND_UNION; break;
         }
-        ImGui::SliderFloat("Extent", &(node->operation.extent), -0.0, 1.0);
-        ImGui::SliderFloat3("Position", &(node->sphere.x), -1.0, 1.0);
-        ImGui::SliderFloat("Radius", &(node->sphere.r), -0.0, 2.0);
-        ImGui::Text("Radius: %.3f, Material: %.1f", node->sphere.r,
-                     node->sphere.m);
-        for (int i=0; i<node->number_of_children; i++)
-            draw_node_editor(node->children[i]);
-        if (ImGui::Button("Add shape"))
-            add_child(node);
-        ImGui::SameLine();
-        if (ImGui::Button("Delete shape"))
-            dispose_node(node);
+        float* shape_data = heap->shapes[index].data;
+        ImGui::SliderFloat("Ex", &(operation->extent), -0.0, 1.0);
+        ImGui::SliderFloat3("Position", &shape_data[0], -1.0, 1.0);
+        switch(heap->shapes[index].type) {
+            case SPHERE:
+                ImGui::SliderFloat("Radius", &shape_data[3], -0.0, 2.0);
+                break;
+            case ROUNDED_RECTANGLE:
+                ImGui::SliderFloat3("Size", &shape_data[3], 0.0, 1.0);
+                ImGui::SliderFloat3("Angle", &(shape_data[6]), -4.0, 4.0);
+                ImGui::SliderFloat("Radius", &(shape_data[9]), -0.0, 2.0);
+                break;
+        }
+        for (int i=0; i<node->size; i++)
+            draw_node_editor(heap, node->children[i]);
+        // if (ImGui::Button("Add shape"))
+        //     add_child(node, heap);
+        // ImGui::SameLine();
+        // if (node->shape_index > 0) {
+        //     if (ImGui::Button("Delete shape"))
+        //         dispose_node(node);
+        // }
         ImGui::TreePop();
     }
     dispose_string(&name);
@@ -92,34 +106,56 @@ int main(int, char**) {
         return -1;
     }
 
-    int number_of_spheres = 1;
-    BenneNode* base = attach_node(
-            { DISTANCE_FIELD_BLEND_ADD, 0.0 },
+    unsigned int heap_size = 128;
+    df_shape* shapes_mem = (df_shape*) malloc(sizeof(df_shape) * heap_size);
+    df_operation* ops_mem = (df_operation*) malloc(sizeof(df_operation) * heap_size);
+    df_node* nodes_mem = (df_node*) malloc(sizeof(df_node) * heap_size);
+    df_heap heap = { heap_size, 0, shapes_mem, ops_mem, nodes_mem };
+    unsigned int base = attach_node(&heap,
+        generate_rectangle(
+            &heap,
             0.0, 0.0, 0.0,
-            0.3, 1.0,
-            NULL);
-    BenneNode* attachment = attach_node(
-        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.1 },
-        0.3, 0.0, 0.0,
-        0.1, 3.0,
+            0.3, 0.3, 0.3,
+            0.0, 0.0, 0.0,
+            0.03, 1.0
+        ),
+        { DISTANCE_FIELD_BLEND_ADD, 0.0 },
+        0);
+    printf("base has index of %i\n", base);
+    unsigned int attachment = attach_node(&heap,
+        generate_sphere(
+            &heap,
+            0.3, 0.0, 0.0,
+            0.1, 3.0
+        ),
+        { DISTANCE_FIELD_BLEND_ADD, 0.1 },
         base
     );
-    BenneNode* a = attach_node(
-        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.1 },
-        -0.3, 0.1, -0.0,
-        0.1, 3.0,
+    unsigned int a = attach_node(&heap,
+        generate_sphere(
+            &heap,
+            -0.3, 0.1, -0.0,
+            0.1, 3.0
+        ),
+        { DISTANCE_FIELD_BLEND_ADD, 0.1 },
         attachment
     );
-    BenneNode* b = attach_node(
-        DistanceFieldOperation { DISTANCE_FIELD_BLEND_SUBTRACT, 0.01 },
-        0.3, 0.1, 0.0,
-        0.15, 1.0,
+    unsigned int b = attach_node(&heap,
+        generate_sphere(
+            &heap,
+            0.3, 0.1, 0.0,
+            0.15, 1.0
+        ),
+        { DISTANCE_FIELD_BLEND_SUBTRACT, 0.01 },
         attachment
     );
-    BenneNode* c = attach_node(
-        DistanceFieldOperation { DISTANCE_FIELD_BLEND_ADD, 0.3 },
-        0.1, 0.4, 0.3,
-        0.4, 1.0,
+    unsigned int c = attach_node(&heap,
+        generate_sphere(
+            &heap,
+            0.1, 0.4, 0.3,
+            0.4, 1.0
+        ),
+        { DISTANCE_FIELD_BLEND_ADD, 0.3 },
         b
     );
 
@@ -148,7 +184,7 @@ int main(int, char**) {
     compile_vertex_shader(&vertex_shader);
     if (test_shader_compilation(&vertex_shader))
         return -1;
-    string shader_source = generate_frag_shader(base);
+    string shader_source = generate_frag_shader(&heap);
     compile_fragment_shader(&fragment_shader, &shader_source);
     if (test_shader_compilation(&fragment_shader))
         return -1;
@@ -196,8 +232,13 @@ int main(int, char**) {
         ImGui::ShowDemoWindow();
 
         ImGui::Begin("Edit shapes.");
+        if (ImGui::Button("print shader")) {
+            string shader = generate_frag_shader(&heap);
+            printf(shader.text);
+            dispose_string(&shader);
+        }
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        draw_node_editor(base);
+        draw_node_editor(&heap, 0);
         ImGui::End();
 
         ImGui::Render();
@@ -225,7 +266,7 @@ int main(int, char**) {
         }
         glUniform2f(uni_mouse, imousex, imousey);
 
-        shader_source = generate_frag_shader(base);
+        shader_source = generate_frag_shader(&heap);
         compile_fragment_shader(&fragment_shader, &shader_source);
         if (test_shader_compilation(&fragment_shader))
             return -1;

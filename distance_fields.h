@@ -2,33 +2,54 @@
 #define DISTANCE_FIELDS_DEFINED
 #include "benne_string.h"
 
-// TODO (20 Feb 2020 sam): This should probably be in the cpp class? I'm not sure really.
-typedef struct Sphere {
-    float x;
-    float y;
-    float z;
-    float r;
-    float m;  // material
-} Sphere;
-
 // TODO (23 Feb 2020 sam): Should non blend operations be separate options?
 typedef enum DISTANCE_FIELD_OPERATIONS {
     DISTANCE_FIELD_BLEND_ADD,
     DISTANCE_FIELD_BLEND_SUBTRACT,
     DISTANCE_FIELD_BLEND_UNION,
-} DistanceFieldOperationEnum;
+} df_operation_enum;
 
-typedef struct DistanceFieldOperation {
-    DistanceFieldOperationEnum operation;
+typedef struct df_operation {
+    df_operation_enum operation;
     float extent;
-} DistanceFieldOperation;
+} df_operation;
+
+typedef enum df_shape_enum {
+    EMPTY,
+    SPHERE,
+    ROUNDED_RECTANGLE,
+} df_shape_enum;
+
+typedef struct df_shape {
+    // TODO (10 Mar 2020 sam): There might be some merit in taking type out of struct
+    // and having a separate array for just the enums. Might improve performance
+    // characteristics because of the array derefencing etc.
+    df_shape_enum type;
+    float data[15];
+} df_shape;
+
+typedef struct df_node {
+    unsigned int size;
+    unsigned int* children;
+} df_node;
+
+typedef struct df_heap {
+    unsigned int size;
+    unsigned int filled;
+    // TODO (10 Mar 2020 sam): Figure out how we can make these flush with each other
+    // in memory. In the JAI talk (https://www.youtube.com/watch?v=TH9VCN6UkyQ) Jon Blow
+    // talks about a thing where we allocate a single heap, and then calculate offsets
+    // within that itself. So that is something we should be able to apply
+    df_shape* shapes;
+    df_operation* operations;
+    df_node* nodes;
+} df_heap;
 
 typedef struct BenneNode {
-    int id;
-    DistanceFieldOperation operation;
-    Sphere sphere;
+    df_operation operation;
+    unsigned int shape_index;
     BenneNode* parent;
-    int number_of_children;
+    unsigned int number_of_children;
     // TODO (26 Feb 2020 sam): should probably be BenneNode* children[]
     // but I don't understand C well enough to do it the idiomatic way, so
     // I'm doing it the scam way... Basically it is an array of BenneNode*
@@ -37,15 +58,20 @@ typedef struct BenneNode {
     BenneNode** children;
 } BenneNode;
 
-int distance_field_functions(BenneNode* node, string* source);
-int distance_field_caller(BenneNode* node, string* source);
-string generate_frag_shader(BenneNode* node);
-BenneNode* attach_node (DistanceFieldOperation operation,
-                       float x, float y, float z,
-                       float r, float m,
-                       BenneNode* parent);
-BenneNode* generate_base_node();
-void print_node(BenneNode* node);
+string generate_frag_shader(df_heap* heap);
+unsigned int attach_node (df_heap* heap,
+                       unsigned int shape_index, 
+                       df_operation operation,
+                       unsigned int parent);
+void print_node(df_heap* heap, unsigned int root);
 int dispose_node(BenneNode* node);
 int detach_node(BenneNode* node);
+unsigned int generate_sphere(df_heap* heap, float x, float y, float z, float radius, float material);
+unsigned int generate_rectangle(df_heap* heap, float x, float y, float z, float radius, float material);
+unsigned int generate_rectangle(df_heap* heap,
+        float x, float y, float z,    // position
+        float w, float b, float h,    // size
+        float rx, float ry, float rz, // rotation
+        float radius, float material);
+unsigned int add_shape_to_heap(df_heap* heap, df_shape shape);
 #endif

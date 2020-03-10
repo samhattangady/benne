@@ -63,4 +63,3 @@ int append_sprintf(string* s, char* base, ...) {
     free(appendage);
     return 0;
 }
-
