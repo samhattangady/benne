@@ -29,6 +29,8 @@ typedef struct df_shape {
 } df_shape;
 
 typedef struct df_node {
+    // TODO (12 Mar 2020 sam): We probably need to add the filled field here as well.
+    // Currently number of children has just been hardcoded to 32.
     unsigned int size;
     unsigned int* children;
 } df_node;
@@ -64,8 +66,8 @@ unsigned int attach_node (df_heap* heap,
                        df_operation operation,
                        unsigned int parent);
 void print_node(df_heap* heap, unsigned int root);
-int dispose_node(BenneNode* node);
-int detach_node(BenneNode* node);
+int dispose_node(df_heap* heap, unsigned int index);
+int detach_node(df_heap* heap, unsigned int index);
 unsigned int generate_sphere(df_heap* heap, float x, float y, float z, float radius, float material);
 unsigned int generate_rectangle(df_heap* heap, float x, float y, float z, float radius, float material);
 unsigned int generate_rectangle(df_heap* heap,

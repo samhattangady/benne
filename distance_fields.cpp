@@ -108,39 +108,67 @@ unsigned int attach_node (df_heap* heap,
             // allocated.
             parent_node->children = (unsigned int*) malloc(sizeof(unsigned int) * 32);
         }
+        if (parent_node->size == 32) {
+            printf("We cannot add further children to the parent. Sorry if you crashed.");
+            return shape_index;
+        }
         parent_node->children[parent_node->size] = shape_index;
         parent_node->size++;
     }
     return shape_index;
 }
 
-int detach_node(BenneNode* node) {
-    // We need to find the index that the node is at in the parent's children
-    // Then we need to slide all the other children up by 1, and decrement num
-    BenneNode* parent = node->parent;     
-    int node_index;
-    for (int i=0; i<parent->number_of_children; i++) {
-        if (parent->children[i] == node) {
-            node_index = i;
-            break;
+int find_parent_index(df_heap* heap, unsigned int index) {
+    // Since we are not storing the parent id in the node itself, we need to search
+    // the tree to find the parent. This is only required when we are deleting the
+    // nodes. It finds the first occurence of the parent. Since the way we use this
+    // is to find all the parents and then delete it, then call it again until there
+    // are none left, we don't need to return an array of indices (though that may
+    // be more efficient.) Also, just storing the parent would be the most efficient
+    for (int i=0; i<heap->filled; i++) {
+        df_node* node = &heap->nodes[i];
+        if (node->size > 0) {
+            for (int j=0; j<node->size; j++) {
+                if(node->children[j] == index)
+                    return i;                
+            }
         }
     }
-    for (int i=node_index+1; i<parent->number_of_children; i++) {
-        parent->children[i-1] = parent->children[i];
+    return -1;
+}
+
+int detach_node(df_heap* heap, unsigned int index) {
+    // Remove the reference to the index in the parent node
+    int parent_index = find_parent_index(heap, index);
+    printf("parent of node %i is node%i\n", index, parent_index);
+    while (parent_index != -1) {
+        int node_index;
+        df_node* parent = &heap->nodes[parent_index];
+        for (int i=0; i<parent->size; i++) {
+            if (parent->children[i] == index) {
+                node_index = index;
+                break;
+            }
+        }
+        for (int i=node_index+1; i<parent->size; i++)
+            parent->children[i-1] = parent->children[i];
+        parent->size--;
+        parent_index = find_parent_index(heap, index);
     }
-    parent->number_of_children--;
     return 0;
 }
 
-int dispose_node(BenneNode* node) {
+int dispose_node(df_heap* heap, unsigned int index) {
     // TODO (27 Feb 2020 sam): This needs to be tested. I'm too lazy at this point
     // to actually check and see whether this works as expected one step deeper.
-    // NOTE (27 Feb 2020 sam): Since we detach each node, we need to dispose the node
-    // at 0 at every iteration, as the indices of the children are changing with every
-    // detach.
-    detach_node(node);
-    for (int i=0; i<node->number_of_children; i++)
-        dispose_node(node->children[0]);
+    printf("disposing node %i\n", index);
+    detach_node(heap, index);
+    printf("finished detaching node %i\n", index);
+    printf("disposing children of node %i\n", index);
+    df_node* node = &heap->nodes[index];
+    for (int i=node->size-1; i>=0; i--)
+        dispose_node(heap, node->children[i]);
+    printf("freeing memory of children of node %i\n", index);
     if (node->children != NULL)
         free(node->children);
     return 0;
@@ -188,6 +216,8 @@ unsigned int generate_rectangle(df_heap* heap,
 
 unsigned int add_shape_to_heap(df_heap* heap, df_shape shape) {
     // FIXME (09 Mar 2020 sam): Grow dynamically once we hit the size...
+    // TODO (12 Mar 2020 sam): There might be gaps in the heap from the shapes that
+    // were deleted. These must first be utilised before growing the stack.
     unsigned int index = heap->filled;
     heap->shapes[index] = shape;
     heap->filled++;

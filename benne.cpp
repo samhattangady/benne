@@ -21,16 +21,17 @@ static void error_callback(int error, const char* description) {
     fprintf(stderr, "Errors: %s\n", description);
 }
 
-// void add_child(BenneNode* node, df_heap* heap) {
-//     attach_node(
-//         { DISTANCE_FIELD_BLEND_ADD, 0.01 },
-//         generate_sphere(
-//             heap,
-//             0.0, 0.0, 0.0,
-//             0.3, 1.0
-//         ),
-//         node);
-// }
+void add_child(df_heap* heap, unsigned int parent_index) {
+    attach_node(heap,
+        generate_sphere(
+            heap,
+            0.3, 0.0, 0.0,
+            0.1, 1.0
+        ),
+        { DISTANCE_FIELD_BLEND_ADD, 0.1 },
+        parent_index
+    );
+}
 
 int get_op_id(df_operation_enum op) {
     switch (op) {
@@ -68,13 +69,13 @@ void draw_node_editor(df_heap* heap, unsigned int index) {
         }
         for (int i=0; i<node->size; i++)
             draw_node_editor(heap, node->children[i]);
-        // if (ImGui::Button("Add shape"))
-        //     add_child(node, heap);
-        // ImGui::SameLine();
-        // if (node->shape_index > 0) {
-        //     if (ImGui::Button("Delete shape"))
-        //         dispose_node(node);
-        // }
+        if (ImGui::Button("Add shape"))
+            add_child(heap, index);
+        ImGui::SameLine();
+        if (index > 0) {
+            if (ImGui::Button("Delete shape"))
+                dispose_node(heap, index);
+        }
         ImGui::TreePop();
     }
     dispose_string(&name);
