@@ -112,53 +112,7 @@ int main(int, char**) {
     df_operation* ops_mem = (df_operation*) malloc(sizeof(df_operation) * heap_size);
     df_node* nodes_mem = (df_node*) malloc(sizeof(df_node) * heap_size);
     df_heap heap = { heap_size, 0, shapes_mem, ops_mem, nodes_mem };
-    unsigned int base = attach_node(&heap,
-        generate_rectangle(
-            &heap,
-            0.0, 0.0, 0.0,
-            0.3, 0.3, 0.3,
-            0.0, 0.0, 0.0,
-            0.03, 1.0
-        ),
-        { DISTANCE_FIELD_BLEND_ADD, 0.0 },
-        0);
-    printf("base has index of %i\n", base);
-    unsigned int attachment = attach_node(&heap,
-        generate_sphere(
-            &heap,
-            0.3, 0.0, 0.0,
-            0.1, 3.0
-        ),
-        { DISTANCE_FIELD_BLEND_ADD, 0.1 },
-        base
-    );
-    unsigned int a = attach_node(&heap,
-        generate_sphere(
-            &heap,
-            -0.3, 0.1, -0.0,
-            0.1, 3.0
-        ),
-        { DISTANCE_FIELD_BLEND_ADD, 0.1 },
-        attachment
-    );
-    unsigned int b = attach_node(&heap,
-        generate_sphere(
-            &heap,
-            0.3, 0.1, 0.0,
-            0.15, 1.0
-        ),
-        { DISTANCE_FIELD_BLEND_SUBTRACT, 0.01 },
-        attachment
-    );
-    unsigned int c = attach_node(&heap,
-        generate_sphere(
-            &heap,
-            0.1, 0.4, 0.3,
-            0.4, 1.0
-        ),
-        { DISTANCE_FIELD_BLEND_ADD, 0.3 },
-        b
-    );
+    load_heap_from_file(&heap, "savefile.txt");
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -285,6 +239,7 @@ int main(int, char**) {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
     }
+    save_heap_to_file(&heap, "savefile.txt");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

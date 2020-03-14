@@ -2,3 +2,9 @@
 *.swp
 main.glsl
 imgui.ini
+
+test.cpp
+test2.cpp
+
+test.sh
+val.sh

@@ -32,7 +32,7 @@ typedef struct df_node {
     // TODO (12 Mar 2020 sam): We probably need to add the filled field here as well.
     // Currently number of children has just been hardcoded to 32.
     unsigned int size;
-    unsigned int* children;
+    unsigned int children[31];
 } df_node;
 
 typedef struct df_heap {
@@ -76,4 +76,6 @@ unsigned int generate_rectangle(df_heap* heap,
         float rx, float ry, float rz, // rotation
         float radius, float material);
 unsigned int add_shape_to_heap(df_heap* heap, df_shape shape);
+int save_heap_to_file(df_heap* heap, char* filename);
+int load_heap_from_file(df_heap* heap, char* filename);
 #endif

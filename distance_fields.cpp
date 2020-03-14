@@ -33,6 +33,7 @@ int append_distance_field(df_heap* heap, string* current_source, unsigned int in
             rectangle_distance_field(depth, &heap->shapes[index], current_source);
             return 0;
     }
+    return -1;
 }
 
 int handle_node(df_heap* heap, string* source, unsigned int index, unsigned int depth) {
@@ -102,13 +103,10 @@ unsigned int attach_node (df_heap* heap,
     heap->operations[shape_index] = operation;
     if (parent_index != shape_index) {
         df_node* parent_node = &heap->nodes[parent_index];
-        if (parent_node->children == NULL) {
-            // TODO (25 Feb 2020 sam): Currently, I'm hard coding a limit of 32
-            // children for each node. Maybe later we can make this dynamically
-            // allocated.
-            parent_node->children = (unsigned int*) malloc(sizeof(unsigned int) * 32);
-        }
-        if (parent_node->size == 32) {
+        // TODO (25 Feb 2020 sam): Currently, I'm hard coding a limit of 32
+        // children for each node. Maybe later we can make this dynamically
+        // allocated.
+        if (parent_node->size == 31) {
             printf("We cannot add further children to the parent. Sorry if you crashed.");
             return shape_index;
         }
@@ -161,16 +159,10 @@ int detach_node(df_heap* heap, unsigned int index) {
 int dispose_node(df_heap* heap, unsigned int index) {
     // TODO (27 Feb 2020 sam): This needs to be tested. I'm too lazy at this point
     // to actually check and see whether this works as expected one step deeper.
-    printf("disposing node %i\n", index);
     detach_node(heap, index);
-    printf("finished detaching node %i\n", index);
-    printf("disposing children of node %i\n", index);
     df_node* node = &heap->nodes[index];
     for (int i=node->size-1; i>=0; i--)
         dispose_node(heap, node->children[i]);
-    printf("freeing memory of children of node %i\n", index);
-    if (node->children != NULL)
-        free(node->children);
     return 0;
 }
 
@@ -222,4 +214,66 @@ unsigned int add_shape_to_heap(df_heap* heap, df_shape shape) {
     heap->shapes[index] = shape;
     heap->filled++;
     return index;
+}
+
+int save_heap_to_file(df_heap* heap, char* filename) {
+    FILE* savefile = fopen(filename, "w");
+    if (savefile == NULL) {
+        fprintf(stderr, "could not open file to save...\n");
+        return -1;
+    }
+    int i, j;
+    unsigned int heap_size = heap->filled;
+    fprintf(savefile, "%i\n", heap_size);
+    for (i=0; i<heap_size; i++) {
+        fprintf(savefile, "%i ", heap->shapes[i].type);
+        for (j=0; j<15; j++)
+            fprintf(savefile, "%f ", heap->shapes[i].data[j]);
+        fprintf(savefile, "\n");
+    }
+    for (i=0; i<heap_size; i++)
+        fprintf(savefile, "%i %f\n", heap->operations[i].operation, heap->operations[i].extent);
+    for (i=0; i<heap_size; i++) {
+        fprintf(savefile, "%i ", heap->nodes[i].size);
+        for (j=0; j<heap->nodes[i].size; j++)
+            fprintf(savefile, "%i ", heap->nodes[i].children[j]);
+        fprintf(savefile, "\n");
+    }
+    fclose(savefile);
+    return 0;
+}
+
+int load_heap_from_file(df_heap* heap, char* filename) {
+    printf("loading savefile : %s\n", filename);
+    FILE* savefile = fopen(filename, "r");
+    if (savefile == NULL) {
+        fprintf(stderr, "could not open file to save...\n");
+        return -1;
+    }
+    int i, j;
+    unsigned int heap_size;
+    fscanf(savefile, "%i\n", &heap_size);
+    printf("found heap size is %i\n", heap_size);
+    heap->filled = heap_size;
+    for (i=0; i<heap_size; i++) {
+        printf("reading shape data for index %i\n", i);
+        fscanf(savefile, "%i ", &(heap->shapes[i].type));
+        for (j=0; j<15; j++)
+            fscanf(savefile, "%f ", &(heap->shapes[i].data[j]));
+        fscanf(savefile, "\n");
+    }
+    printf("completed reading shape data\n");
+    for (i=0; i<heap_size; i++)
+        fscanf(savefile, "%i %f\n", &(heap->operations[i].operation), &(heap->operations[i].extent));
+    printf("completed reading operations data\n");
+    for (i=0; i<heap_size; i++) {
+        printf("reading shape data for index %i\n", i);
+        fscanf(savefile, "%i ", &(heap->nodes[i].size));
+        for (j=0; j<heap->nodes[i].size; j++)
+            fscanf(savefile, "%i ", &(heap->nodes[i].children[j]));
+        fscanf(savefile, "\n");
+    }
+    printf("completed reading node data\n");
+    fclose(savefile);
+    return 0;
 }
