@@ -5,20 +5,20 @@
 #include "distance_fields.h"
 
 int sphere_distance_field(int id, df_shape* sphere, string* current_source) {
-    char* base = "d%i = vec2(sdfSphere(pos, vec3(%.3f, %.3f, %.3f), %.3f), %.3f);\n";
-    append_sprintf(current_source, base, id, 
+    char* base = "d%i = vec2(sdfSphere((pos-p%i), vec3(%.3f, %.3f, %.3f), %.3f), %.3f);\n";
+    append_sprintf(current_source, base, id, id-1,
             sphere->data[0],sphere->data[1],sphere->data[2],
             sphere->data[3],sphere->data[4]);
     return 0;
 }
 
-int rectangle_distance_field(int id, df_shape* sphere, string* current_source) {
+int rectangle_distance_field(int id, df_shape* shape, string* current_source) {
     char* base = "d%i = vec2(sdfRoundBoxRotated(pos, vec3(%.3f, %.3f, %.3f), vec3(%.3f, %.3f, %.3f), vec3(%.3f, %.3f, %.3f), %.3f), %.3f);\n";
-    append_sprintf(current_source, base, id, 
-            sphere->data[0],sphere->data[1],sphere->data[2],
-            sphere->data[3],sphere->data[4],sphere->data[5],
-            sphere->data[6],sphere->data[7],sphere->data[8],
-            sphere->data[9],sphere->data[10]);
+    append_sprintf(current_source, base, id,
+            shape->data[0],shape->data[1],shape->data[2],
+            shape->data[3],shape->data[4],shape->data[5],
+            shape->data[6],shape->data[7],shape->data[8],
+            shape->data[9],shape->data[10]);
     return 0;
 }
 
@@ -36,6 +36,21 @@ int append_distance_field(df_heap* heap, string* current_source, unsigned int in
     return -1;
 }
 
+int append_depth_position(df_heap* heap, string* source, unsigned int index, unsigned int depth) {
+    // This method could probably do with a better name. It is used to mark the position
+    // of a node, so that all the children can then be placed relative to their parent
+    df_shape* shape = &heap->shapes[index];
+    append_sprintf(source,
+            "p%i = vec3(%.3f, %.3f, %.3f);\n",
+            depth,
+            shape->data[0],shape->data[1],shape->data[2]);
+    if (depth > 0) {
+        append_sprintf(source,
+                "p%i += p%i;\n",
+                depth, depth-1);
+    }
+    return 0;
+}
 int handle_node(df_heap* heap, string* source, unsigned int index, unsigned int depth) {
     df_operation operation = heap->operations[index];
     if (operation.operation == DISTANCE_FIELD_BLEND_ADD) {
@@ -63,6 +78,9 @@ int distance_field_caller(df_heap* heap, string* source, unsigned int index, uns
     // whether there is a better way to do this, but I think its a fair assumption
     append_distance_field(heap, source, index, depth);
     for (int i=0; i<heap->nodes[index].size; i++) {
+        if (i==0) {
+            append_depth_position(heap, source, index, depth);
+        }
         unsigned int child_index = heap->nodes[index].children[i];
         distance_field_caller(heap, source, child_index, depth+1); 
     }
@@ -244,7 +262,7 @@ int save_heap_to_file(df_heap* heap, char* filename) {
 }
 
 int load_heap_from_file(df_heap* heap, char* filename) {
-    printf("loading savefile : %s\n", filename);
+    printf("-----\nloading savefile : %s\n", filename);
     FILE* savefile = fopen(filename, "r");
     if (savefile == NULL) {
         fprintf(stderr, "could not open file to save...\n");
@@ -256,7 +274,6 @@ int load_heap_from_file(df_heap* heap, char* filename) {
     printf("found heap size is %i\n", heap_size);
     heap->filled = heap_size;
     for (i=0; i<heap_size; i++) {
-        printf("reading shape data for index %i\n", i);
         fscanf(savefile, "%i ", &(heap->shapes[i].type));
         for (j=0; j<15; j++)
             fscanf(savefile, "%f ", &(heap->shapes[i].data[j]));
@@ -267,13 +284,12 @@ int load_heap_from_file(df_heap* heap, char* filename) {
         fscanf(savefile, "%i %f\n", &(heap->operations[i].operation), &(heap->operations[i].extent));
     printf("completed reading operations data\n");
     for (i=0; i<heap_size; i++) {
-        printf("reading shape data for index %i\n", i);
         fscanf(savefile, "%i ", &(heap->nodes[i].size));
         for (j=0; j<heap->nodes[i].size; j++)
             fscanf(savefile, "%i ", &(heap->nodes[i].children[j]));
         fscanf(savefile, "\n");
     }
-    printf("completed reading node data\n");
+    printf("completed reading node data\n-----\n");
     fclose(savefile);
     return 0;
 }

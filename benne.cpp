@@ -25,10 +25,10 @@ void add_child(df_heap* heap, unsigned int parent_index) {
     attach_node(heap,
         generate_sphere(
             heap,
-            0.3, 0.0, 0.0,
+            0.0, 0.0, 0.0,
             0.1, 1.0
         ),
-        { DISTANCE_FIELD_BLEND_ADD, 0.1 },
+        { DISTANCE_FIELD_BLEND_ADD, 0.2 },
         parent_index
     );
 }
@@ -39,6 +39,8 @@ int get_op_id(df_operation_enum op) {
         case DISTANCE_FIELD_BLEND_SUBTRACT: return 1;
         case DISTANCE_FIELD_BLEND_UNION: return 2;
     }
+    // TODO (23 Mar 2020 sam): What should this return?
+    return -1;
 }
 
 void draw_node_editor(df_heap* heap, unsigned int index) {
@@ -135,15 +137,16 @@ int main(int, char**) {
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
+    string* shader_source;
 
     compile_vertex_shader(&vertex_shader);
     if (test_shader_compilation(&vertex_shader))
         return -1;
-    string shader_source = generate_frag_shader(&heap);
-    compile_fragment_shader(&fragment_shader, &shader_source);
+    *shader_source = generate_frag_shader(&heap);
+    compile_fragment_shader(&fragment_shader, shader_source);
     if (test_shader_compilation(&fragment_shader))
         return -1;
-    dispose_string(&shader_source);
+    dispose_string(shader_source);
     if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader))
         return -1;
 
@@ -185,11 +188,10 @@ int main(int, char**) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         ImGui::ShowDemoWindow();
-
         ImGui::Begin("Edit shapes.");
         if (ImGui::Button("print shader")) {
             string shader = generate_frag_shader(&heap);
-            printf(shader.text);
+            printf("%s\n", shader.text);
             dispose_string(&shader);
         }
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -221,11 +223,11 @@ int main(int, char**) {
         }
         glUniform2f(uni_mouse, imousex, imousey);
 
-        shader_source = generate_frag_shader(&heap);
-        compile_fragment_shader(&fragment_shader, &shader_source);
+        *shader_source = generate_frag_shader(&heap);
+        compile_fragment_shader(&fragment_shader, shader_source);
         if (test_shader_compilation(&fragment_shader))
             return -1;
-        dispose_string(&shader_source);
+        dispose_string(shader_source);
         if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader))
             return -1;
         uni_time = glGetUniformLocation(shader_program, "iTime");
@@ -239,11 +241,18 @@ int main(int, char**) {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
     }
+
+    printf("saving to file\n");
     save_heap_to_file(&heap, "savefile.txt");
+    printf("closing imgui\n");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+    printf("closing glfw\n");
     glfwDestroyWindow(window);
+
+    printf("terminating glfw\n");
     glfwTerminate();
+    printf("exitting benne\n");
     return 0;
 }

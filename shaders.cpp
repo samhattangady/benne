@@ -64,10 +64,10 @@ GLchar* fragment_source_header = "\
     uniform vec3 iResolution;\n\
 ";
 GLchar* fragment_source_footer = "\
-    void main()\n\
-    {\n\
-        mainImage(fragColor, fragCoord);\n\
-    }\n\
+void main()\n\
+{\n\
+    mainImage(fragColor, fragCoord);\n\
+}\n\
 ";
 
 int compile_vertex_shader(GLuint* vertex_shader) {
@@ -91,6 +91,7 @@ int compile_fragment_shader(GLuint* fragment_shader, string* shader_source) {
     glCompileShader(*fragment_shader);
     free(fragment_source_helpers);
     free(fragment_source_base);
+    dispose_string(&fragment_source);
     return 0;
 }
 
