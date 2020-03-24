@@ -61,12 +61,12 @@ void draw_node_editor(df_heap* heap, unsigned int index) {
         ImGui::SliderFloat3("Position", &shape_data[0], -1.0, 1.0);
         switch(heap->shapes[index].type) {
             case SPHERE:
-                ImGui::SliderFloat("Radius", &shape_data[3], -0.0, 2.0);
+                ImGui::SliderFloat("Radius", &shape_data[9], -0.0, 2.0);
                 break;
             case ROUNDED_RECTANGLE:
-                ImGui::SliderFloat3("Size", &shape_data[3], 0.0, 1.0);
-                ImGui::SliderFloat3("Angle", &(shape_data[6]), -4.0, 4.0);
-                ImGui::SliderFloat("Radius", &(shape_data[9]), -0.0, 2.0);
+                ImGui::SliderFloat3("Angle", &shape_data[3], -4.0, 4.0);
+                ImGui::SliderFloat3("Size",  &shape_data[6],  0.0, 1.0);
+                ImGui::SliderFloat("Radius", &shape_data[9], -0.0, 2.0);
                 break;
         }
         for (int i=0; i<node->size; i++)

@@ -5,20 +5,17 @@
 #include "distance_fields.h"
 
 int sphere_distance_field(int id, df_shape* sphere, string* current_source) {
-    char* base = "d%i = vec2(sdfSphere((pos-p%i), vec3(%.3f, %.3f, %.3f), %.3f), %.3f);\n";
-    append_sprintf(current_source, base, id, id-1,
-            sphere->data[0],sphere->data[1],sphere->data[2],
-            sphere->data[3],sphere->data[4]);
+    char* base = "d%i = vec2(sdfSphere(pos, %.3f), %.3f);\n";
+    append_sprintf(current_source, base, id,
+            sphere->data[9],sphere->data[14]);
     return 0;
 }
 
 int rectangle_distance_field(int id, df_shape* shape, string* current_source) {
-    char* base = "d%i = vec2(sdfRoundBoxRotated(pos, vec3(%.3f, %.3f, %.3f), vec3(%.3f, %.3f, %.3f), vec3(%.3f, %.3f, %.3f), %.3f), %.3f);\n";
+    char* base = "d%i = vec2(sdfRoundedBox(pos, vec3(%.3f, %.3f, %.3f), %.3f), %.3f);\n";
     append_sprintf(current_source, base, id,
-            shape->data[0],shape->data[1],shape->data[2],
-            shape->data[3],shape->data[4],shape->data[5],
             shape->data[6],shape->data[7],shape->data[8],
-            shape->data[9],shape->data[10]);
+            shape->data[9],shape->data[14]);
     return 0;
 }
 
@@ -41,16 +38,18 @@ int append_depth_position(df_heap* heap, string* source, unsigned int index, uns
     // of a node, so that all the children can then be placed relative to their parent
     df_shape* shape = &heap->shapes[index];
     append_sprintf(source,
-            "p%i = vec3(%.3f, %.3f, %.3f);\n",
+            "pos=in_pos;\np%i = vec3(%.3f, %.3f, %.3f);\nr%i = vec3(%.3f, %.3f, %.3f);\n",
             depth,
-            shape->data[0],shape->data[1],shape->data[2]);
-    if (depth > 0) {
+            shape->data[0],shape->data[1],shape->data[2],
+            shape->data[3],shape->data[4],shape->data[5]);
+    for (int i=0; i<=depth; i++) {
         append_sprintf(source,
-                "p%i += p%i;\n",
-                depth, depth-1);
+                "pos = moveAndRotate(pos, p%i, r%i);\n",
+                 i, i);
     }
     return 0;
 }
+
 int handle_node(df_heap* heap, string* source, unsigned int index, unsigned int depth) {
     df_operation operation = heap->operations[index];
     if (operation.operation == DISTANCE_FIELD_BLEND_ADD) {
@@ -76,34 +75,26 @@ int handle_node(df_heap* heap, string* source, unsigned int index, unsigned int 
 int distance_field_caller(df_heap* heap, string* source, unsigned int index, unsigned int depth) {
     // We currently always assume the root of the tree is at index 0. I don't know
     // whether there is a better way to do this, but I think its a fair assumption
+    append_depth_position(heap, source, index, depth);
     append_distance_field(heap, source, index, depth);
     for (int i=0; i<heap->nodes[index].size; i++) {
-        if (i==0) {
-            append_depth_position(heap, source, index, depth);
-        }
         unsigned int child_index = heap->nodes[index].children[i];
         distance_field_caller(heap, source, child_index, depth+1); 
     }
     if (depth>0) {
         handle_node(heap, source, index, depth);
     }
-    // for (int i=0; i<node->number_of_children; i++) {
-        // distance_field_caller(node->children[i], heap, source);
-        // TODO (09 Mar 2020 sam): Figure out how to access the material
-        // handle_node(node->shape_index, node->children[i]->shape_index,
-        //             heap->shapes[node->children[i]->shape_index].data[4],
-        //             node->children[i]->operation, source);
-    // }
     return 0;
 }
 
 string generate_frag_shader(df_heap* heap) {
     string frag_shader = empty_string();
     append_sprintf(&frag_shader, "vec4 distanceField(vec3 pos) {\n");
-    append_sprintf(&frag_shader, "float d = 10000.0;\nfloat material = 0.0;\n");
+    append_sprintf(&frag_shader, "float d = 10000.0;\nfloat material = 0.0;\nvec3 in_pos=pos;\n");
     // TODO (10 Mar 2020 sam): Figure out a way to get the actual deepest node in tree
     append_sprintf(&frag_shader, "vec2 d0, d1, d2, d3, d4, d5, d6, d7;\n");
     append_sprintf(&frag_shader, "vec3 p0, p1, p2, p3, p4, p5, p6, p7;\n");
+    append_sprintf(&frag_shader, "vec3 r0, r1, r2, r3, r4, r5, r6, r7;\n");
     distance_field_caller(heap, &frag_shader, 0, 0);
     append_sprintf(&frag_shader, "return vec4(d0.x, material, 0.0, 0.0);\n}\n");
     return frag_shader;
@@ -200,9 +191,12 @@ void print_node(df_heap* heap, unsigned int root) {
 unsigned int generate_sphere(df_heap* heap, float x, float y, float z, float radius, float material) {
     int index = add_shape_to_heap(heap, 
         { SPHERE,
-             {x, y, z, radius, material,
-              0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-              0.0f, 0.0f, 0.0f, 0.0f, 0.0f}}
+             {x, y, z,
+              0.0f, 0.0f, 0.0f,
+              0.0f, 0.0f, 0.0f,
+              radius,
+              0.0f, 0.0f, 0.0f, 0.0f,
+              material}}
         );
     return index;
 }
@@ -215,10 +209,11 @@ unsigned int generate_rectangle(df_heap* heap,
     int index = add_shape_to_heap(heap, 
         { ROUNDED_RECTANGLE,
              {x, y, z,
-              w, b, h,
               rx, ry, rz,
-              radius, material,
-              0.0f, 0.0f, 0.0f, 0.0f}}
+              w, b, h,
+              radius,
+              0.0f, 0.0f, 0.0f,
+              material}}
         );
     return index;
 

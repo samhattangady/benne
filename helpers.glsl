@@ -15,8 +15,13 @@ vec3 rotate3D(vec3 point, vec3 rotation) {
                    0, sin(r.x),  cos(r.x));
     return rx * ry * rz * point;
 }
-float sdfSphere(vec3 position, vec3 center, float radius) {
-    return distance(position, center) - radius;
+vec3 moveAndRotate(vec3 position, vec3 center, vec3 rotation) {
+    position -= center;
+    position = rotate3D(position, rotation);
+    return position;
+}
+float sdfSphere(vec3 position, float radius) {
+    return length(position) - radius;
 }
 float sdfEllipsoid(vec3 position, vec3 center, vec3 radii) {
     position -= center;
@@ -34,9 +39,7 @@ float sdfEllipsoidRotated(vec3 position, vec3 center, vec3 radii, vec3 rotation)
 float sdfPlane( vec3 position, vec4 n ) {
     return dot(position, normalize(n.xyz)) + n.w;
 }
-float sdfRoundBoxRotated(vec3 position, vec3 center, vec3 box, vec3 rotation, float radius) {
-    position -= center;
-    position = rotate3D(position, rotation);
+float sdfRoundedBox(vec3 position, vec3 box, float radius) {
     vec3 q = abs(position) - box;
     return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - radius;
 }
