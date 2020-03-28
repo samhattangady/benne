@@ -13,74 +13,13 @@
 #include <poll.h>
 #include "shaders.h"
 #include "distance_fields.h"
+#include "ui.h"
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1 * ( EVENT_SIZE + 16 ) )
 
 static void error_callback(int error, const char* description) {
     fprintf(stderr, "Errors: %s\n", description);
-}
-
-void add_child(df_heap* heap, unsigned int parent_index) {
-    attach_node(heap,
-        generate_sphere(
-            heap,
-            0.0, 0.0, 0.0,
-            0.1, 1.0
-        ),
-        { DISTANCE_FIELD_BLEND_ADD, 0.2 },
-        parent_index
-    );
-}
-
-int get_op_id(df_operation_enum op) {
-    switch (op) {
-        case DISTANCE_FIELD_BLEND_ADD: return 0;
-        case DISTANCE_FIELD_BLEND_SUBTRACT: return 1;
-        case DISTANCE_FIELD_BLEND_UNION: return 2;
-    }
-    // TODO (23 Mar 2020 sam): What should this return?
-    return -1;
-}
-
-void draw_node_editor(df_heap* heap, unsigned int index) {
-    string name = string_from("Shape");
-    append_sprintf(&name, " %i", index);
-    df_node* node = &heap->nodes[index];
-    df_operation* operation = &heap->operations[index];
-    if (ImGui::TreeNode(name.text)) {
-        int op_id = get_op_id(operation->operation);
-        ImGui::Combo("Op", &op_id, "Add\0Subtract\0Union\0");
-        switch (op_id) {
-            case 0: operation->operation = DISTANCE_FIELD_BLEND_ADD; break;
-            case 1: operation->operation = DISTANCE_FIELD_BLEND_SUBTRACT; break;
-            case 2: operation->operation = DISTANCE_FIELD_BLEND_UNION; break;
-        }
-        float* shape_data = heap->shapes[index].data;
-        ImGui::SliderFloat("Ex", &(operation->extent), -0.0, 1.0);
-        ImGui::SliderFloat3("Position", &shape_data[0], -1.0, 1.0);
-        switch(heap->shapes[index].type) {
-            case SPHERE:
-                ImGui::SliderFloat("Radius", &shape_data[9], -0.0, 2.0);
-                break;
-            case ROUNDED_RECTANGLE:
-                ImGui::SliderFloat3("Angle", &shape_data[3], -4.0, 4.0);
-                ImGui::SliderFloat3("Size",  &shape_data[6],  0.0, 1.0);
-                ImGui::SliderFloat("Radius", &shape_data[9], -0.0, 2.0);
-                break;
-        }
-        for (int i=0; i<node->size; i++)
-            draw_node_editor(heap, node->children[i]);
-        if (ImGui::Button("Add shape"))
-            add_child(heap, index);
-        ImGui::SameLine();
-        if (index > 0) {
-            if (ImGui::Button("Delete shape"))
-                dispose_node(heap, index);
-        }
-        ImGui::TreePop();
-    }
-    dispose_string(&name);
 }
 
 int main(int, char**) {
@@ -179,8 +118,10 @@ int main(int, char**) {
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 150");
-
     ImVec4 clear_color = ImVec4(0.15f, 0.15f, 0.20f, 1.00f);
+
+    ui_state state = {heap, 0};
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -188,15 +129,8 @@ int main(int, char**) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         ImGui::ShowDemoWindow();
-        ImGui::Begin("Edit shapes.");
-        if (ImGui::Button("print shader")) {
-            string shader = generate_frag_shader(&heap);
-            printf("%s\n", shader.text);
-            dispose_string(&shader);
-        }
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        draw_node_editor(&heap, 0);
-        ImGui::End();
+        draw_shape_selector(&state, 0);
+        draw_node_editor(&state);
 
         ImGui::Render();
 
@@ -243,6 +177,7 @@ int main(int, char**) {
     }
 
     printf("saving to file\n");
+    // simplify_heap(&heap);
     save_heap_to_file(&heap, "savefile.txt");
     printf("closing imgui\n");
     ImGui_ImplOpenGL3_Shutdown();

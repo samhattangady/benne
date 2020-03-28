@@ -229,6 +229,48 @@ unsigned int add_shape_to_heap(df_heap* heap, df_shape shape) {
     return index;
 }
 
+int simplify_heap(df_heap* heap) {
+    // Remove all the unused nodes, and push the later nodes to use the minumum
+    // amount of space.
+    // TODO (24 Mar 2020 sam): This just feels so complex. Using so many variables.
+    // I wonder if there is a simpler way.
+    int heap_size = heap->filled;
+    int i, j, k;
+    // Check all the children to see which nodes are used.
+    int* used = (int*) malloc(sizeof(int) * heap_size);
+    for (i=0; i<heap_size; i++) 
+        used[i] = 0;
+    // 0 is the root node. Don't want to delete that.
+    used[0] = 1;
+    for (i=0; i<heap_size; i++) {
+        for (j=0; j<heap->nodes[i].size; j++) {
+            int child = heap->nodes[i].children[j];
+            used[child]++; 
+        } 
+    }
+    int new_size = 0;
+    int* unused = (int*) malloc(sizeof(int) * heap_size);
+    for (int i=0; i<heap_size; i++) {
+        if (used[i] > 0)
+            new_size++;
+    }
+    printf("old heap size was %i, new size is %i.\n", heap_size, new_size);
+    for (i=0; i<heap_size; i++) {
+        if (used[i]==0) {
+            printf("removing node %i\n", i);
+            for (j=i; j<heap_size-1; j++) {
+                heap->shapes[j] = heap->shapes[j+1];
+                heap->operations[j] = heap->operations[j+1];
+                heap->nodes[j] = heap->nodes[j+1];
+                used[j] = used[j+1];
+            }
+            i--;
+        }
+    }
+    heap->filled = new_size;
+    return 0;
+}
+
 int save_heap_to_file(df_heap* heap, char* filename) {
     FILE* savefile = fopen(filename, "w");
     if (savefile == NULL) {

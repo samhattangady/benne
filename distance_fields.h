@@ -47,19 +47,6 @@ typedef struct df_heap {
     df_node* nodes;
 } df_heap;
 
-typedef struct BenneNode {
-    df_operation operation;
-    unsigned int shape_index;
-    BenneNode* parent;
-    unsigned int number_of_children;
-    // TODO (26 Feb 2020 sam): should probably be BenneNode* children[]
-    // but I don't understand C well enough to do it the idiomatic way, so
-    // I'm doing it the scam way... Basically it is an array of BenneNode*
-    // TODO (26 Feb 2020 sam): this could also be children[32]. Anyway I have
-    // set a hard limit (temporarily hopefully), and it might be easier that way
-    BenneNode** children;
-} BenneNode;
-
 string generate_frag_shader(df_heap* heap);
 unsigned int attach_node (df_heap* heap,
                        unsigned int shape_index, 
@@ -76,6 +63,7 @@ unsigned int generate_rectangle(df_heap* heap,
         float rx, float ry, float rz, // rotation
         float radius, float material);
 unsigned int add_shape_to_heap(df_heap* heap, df_shape shape);
+int simplify_heap(df_heap* heap);
 int save_heap_to_file(df_heap* heap, char* filename);
 int load_heap_from_file(df_heap* heap, char* filename);
 #endif
