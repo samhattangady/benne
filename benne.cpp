@@ -120,7 +120,7 @@ int main(int, char**) {
     ImGui_ImplOpenGL3_Init("#version 150");
     ImVec4 clear_color = ImVec4(0.15f, 0.15f, 0.20f, 1.00f);
 
-    ui_state state = {heap, 0};
+    ui_state state = {&heap, 0};
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();

@@ -22,14 +22,32 @@ int get_op_id(df_operation_enum op) {
     return -1;
 }
 
+int get_shape_type(df_shape_enum shape) {
+    switch (shape) {
+        case EMPTY: return 0;
+        case SPHERE: return 1;
+        case ROUNDED_RECTANGLE: return 2;
+    }
+    // TODO (29 Mar 2020 sam): What should this return?
+    return -1;
+}
+
 void draw_node_editor(ui_state* state) {
     unsigned int index = state->active_index;
     ImGui::Begin("Node Editor");
     string name = string_from("Active Shape: ");
     append_sprintf(&name, " %i", index);
     ImGui::Button(name.text);
-    df_node* node = &state->heap.nodes[index];
-    df_operation* operation = &state->heap.operations[index];
+    df_node* node = &state->heap->nodes[index];
+    df_shape* shape = &state->heap->shapes[index];
+    int shape_type = get_shape_type(shape->type);
+    ImGui::Combo("Shape", &shape_type, "Empty\0Sphere\0Box\0");
+    switch (shape_type) {
+        case 0: shape->type = EMPTY; break;
+        case 1: shape->type = SPHERE; break;
+        case 2: shape->type = ROUNDED_RECTANGLE; break;
+    }
+    df_operation* operation = &state->heap->operations[index];
     int op_id = get_op_id(operation->operation);
     ImGui::Combo("Op", &op_id, "Add\0Subtract\0Union\0");
     switch (op_id) {
@@ -37,7 +55,7 @@ void draw_node_editor(ui_state* state) {
         case 1: operation->operation = DISTANCE_FIELD_BLEND_SUBTRACT; break;
         case 2: operation->operation = DISTANCE_FIELD_BLEND_UNION; break;
     }
-    float* shape_data = state->heap.shapes[index].data;
+    float* shape_data = state->heap->shapes[index].data;
     ImGui::SliderFloat("Ex", &(operation->extent), -0.0, 1.0);
     ImGui::SliderFloat3("Position", &shape_data[0], -1.0, 1.0);
     ImGui::SliderFloat3("Angle", &shape_data[3], -4.0, 4.0);
@@ -50,20 +68,18 @@ void draw_node_editor(ui_state* state) {
 void draw_node(ui_state* state, unsigned int index) {
     string name = string_from("Shape");
     append_sprintf(&name, " %i", index);
-    df_node* node = &state->heap.nodes[index];
-    if (ImGui::Button("Set Active"))
+    df_node* node = &state->heap->nodes[index];
+    if (ImGui::Button(name.text))
         state->active_index = index;
     ImGui::SameLine();
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode(name.text)) {
         ImGui::SameLine();
-        if (ImGui::Button("Add shape"))
-            add_child(&state->heap, index);
+        if (ImGui::Button("Add shape")) add_child(state->heap, index);
         ImGui::SameLine();
-        if (ImGui::Button("Delete shape"))
-            dispose_node(&state->heap, index);
-        for (int i=0; i<node->size; i++)
-            draw_node(state, node->children[i]);
+        // TODO (29 Mar 2020 sam): Create confirmation dialog
+        if (ImGui::Button("Delete shape")) dispose_node(state->heap, index);
+        for (int i=0; i<node->size; i++) draw_node(state, node->children[i]);
         ImGui::TreePop();
     }
     dispose_string(&name);
@@ -72,9 +88,14 @@ void draw_node(ui_state* state, unsigned int index) {
 void draw_shape_selector(ui_state* state, unsigned int index) {
    ImGui::Begin("Edit shapes.");
    if (ImGui::Button("print shader")) {
-       string shader = generate_frag_shader(&state->heap);
+       string shader = generate_frag_shader(state->heap);
        printf("%s\n", shader.text);
        dispose_string(&shader);
+   }
+   ImGui::SameLine();
+   if (ImGui::Button("print tree")) {
+       print_node(state->heap, 0);
+       printf("-----\n");
    }
    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
    draw_node(state, index);

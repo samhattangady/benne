@@ -147,31 +147,28 @@ int find_parent_index(df_heap* heap, unsigned int index) {
 int detach_node(df_heap* heap, unsigned int index) {
     // Remove the reference to the index in the parent node
     int parent_index = find_parent_index(heap, index);
-    printf("parent of node %i is node%i\n", index, parent_index);
-    while (parent_index != -1) {
-        int node_index;
-        df_node* parent = &heap->nodes[parent_index];
-        for (int i=0; i<parent->size; i++) {
-            if (parent->children[i] == index) {
-                node_index = index;
-                break;
-            }
+    df_node* parent = &heap->nodes[parent_index];
+    int node_index;
+    for (int i=0; i<parent->size; i++) {
+        if (parent->children[i] == index) {
+            node_index = i;
+            break;
         }
-        for (int i=node_index+1; i<parent->size; i++)
-            parent->children[i-1] = parent->children[i];
-        parent->size--;
-        parent_index = find_parent_index(heap, index);
     }
+    for (int i=node_index; i<parent->size-1; i++)
+        parent->children[i] = parent->children[i+1];
+    parent->size--;
     return 0;
 }
 
 int dispose_node(df_heap* heap, unsigned int index) {
     // TODO (27 Feb 2020 sam): This needs to be tested. I'm too lazy at this point
     // to actually check and see whether this works as expected one step deeper.
-    detach_node(heap, index);
+    printf("disposing node %i\n", index);
     df_node* node = &heap->nodes[index];
     for (int i=node->size-1; i>=0; i--)
         dispose_node(heap, node->children[i]);
+    detach_node(heap, index);
     return 0;
 }
 

@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 typedef struct ui_state {
-    df_heap heap;
+    df_heap* heap;
     unsigned int active_index;
 } ui_state;
 
