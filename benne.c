@@ -22,7 +22,7 @@ static void error_callback(int error, const char* description) {
     fprintf(stderr, "Errors: %s\n", description);
 }
 
-int main(int, char**) {
+int main(int argc, char** argv) {
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
         return -1;
@@ -43,6 +43,8 @@ int main(int, char**) {
 
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
+char* vs = read_file("glsl/text_vertex.glsl");
+char* fs = read_file("glsl/text_fragment.glsl");
     if (GLEW_OK != err) {
         fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
         return -1;
@@ -99,9 +101,7 @@ int main(int, char**) {
 
     // ui_state state = {&heap, 0};
 
-    printf("creating instance?\n...");
     cb_ui_state benne_ui;
-    printf("intting instance?\n...");
     init_ui(&benne_ui);
 
     while (!glfwWindowShouldClose(window)) {
@@ -118,7 +118,6 @@ int main(int, char**) {
         glfwGetCursorPos(window, &xpos, &ypos);
         imousex = xpos;
         imousey = ypos;
-        printf("mousepos: %f %f\n", imousex/window_width*1.0, imousey);
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GL_TRUE);
@@ -158,7 +157,6 @@ int main(int, char**) {
     free(heap.shapes);
     free(heap.operations);
     free(heap.nodes);
-    printf("closing imgui\n");
     printf("closing glfw\n");
     glfwDestroyWindow(window);
 

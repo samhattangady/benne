@@ -1,4 +1,5 @@
 #include "cb_ui.h"
+#include "shaders.h"
 
 int init_gl_values(cb_ui_state* state) {
     glEnable(GL_CULL_FACE);
@@ -18,7 +19,8 @@ int init_gl_values(cb_ui_state* state) {
     uint text_fragment_shader;
     uint text_shader_program;
     compile_and_link_text_shader(&text_vertex_shader, &text_fragment_shader, &text_shader_program);
-    state->values = {VAO, VBO, text_vertex_shader, text_fragment_shader, text_shader_program};
+    gl_values values = {VAO, VBO, text_vertex_shader, text_fragment_shader, text_shader_program};
+    state->values = values;
     return 0;
 }
 
@@ -52,8 +54,7 @@ int init_character_glyphs(cb_ui_state* state) {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             // TODO (05 Apr 2020 sam): Figure out how to declare and insert in one step;
-            // ft_char current_char = {
-            state->glyphs[i] = {
+            ft_char current_char = {
                 texture,
                 ft_face->glyph->bitmap.width,
                 ft_face->glyph->bitmap.rows,
@@ -61,6 +62,7 @@ int init_character_glyphs(cb_ui_state* state) {
                 ft_face->glyph->bitmap_top,
                 ft_face->glyph->advance.x
             };
+            state->glyphs[i] = current_char;
             i++;
         }
     }
@@ -70,7 +72,6 @@ int init_character_glyphs(cb_ui_state* state) {
 }
 
 int init_ui(cb_ui_state* state) {
-    printf("initting ui?\n");
     init_character_glyphs(state);
     init_gl_values(state);
     return 0;

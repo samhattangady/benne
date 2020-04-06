@@ -18,7 +18,8 @@ string string_from(char* text) {
     char* s = (char*) malloc(sizeof(char) * len);
     s[0] = '\0';
     strcat(s, text);
-    return {s, len};
+    string result = {s, len};
+    return result;
 }
 
 string empty_string() {

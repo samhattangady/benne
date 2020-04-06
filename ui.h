@@ -1,4 +1,3 @@
-#include "imgui_pch.h"
 #include "distance_fields.h"
 #include <stdio.h>
 

@@ -56,7 +56,6 @@ void print_node(df_heap* heap, unsigned int root);
 int dispose_node(df_heap* heap, unsigned int index);
 int detach_node(df_heap* heap, unsigned int index);
 unsigned int generate_sphere(df_heap* heap, float x, float y, float z, float radius, float material);
-unsigned int generate_rectangle(df_heap* heap, float x, float y, float z, float radius, float material);
 unsigned int generate_rectangle(df_heap* heap,
         float x, float y, float z,    // position
         float w, float b, float h,    // size

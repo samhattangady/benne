@@ -186,15 +186,14 @@ void print_node(df_heap* heap, unsigned int root) {
 }
 
 unsigned int generate_sphere(df_heap* heap, float x, float y, float z, float radius, float material) {
-    int index = add_shape_to_heap(heap, 
-        { SPHERE,
+    df_shape shape = { SPHERE,
              {x, y, z,
               0.0f, 0.0f, 0.0f,
               0.0f, 0.0f, 0.0f,
               radius,
               0.0f, 0.0f, 0.0f, 0.0f,
-              material}}
-        );
+              material}};
+    int index = add_shape_to_heap(heap, shape);
     return index;
 }
 
@@ -203,15 +202,14 @@ unsigned int generate_rectangle(df_heap* heap,
         float w, float b, float h,    // size
         float rx, float ry, float rz, // rotation
         float radius, float material) {
-    int index = add_shape_to_heap(heap, 
-        { ROUNDED_RECTANGLE,
+    df_shape shape =  { ROUNDED_RECTANGLE,
              {x, y, z,
               rx, ry, rz,
               w, b, h,
               radius,
               0.0f, 0.0f, 0.0f,
-              material}}
-        );
+              material}};
+    int index = add_shape_to_heap(heap, shape);
     return index;
 
 }

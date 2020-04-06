@@ -9,8 +9,6 @@
 #include <sys/inotify.h>
 #include <sys/unistd.h>
 #include <poll.h>
-#include <iostream>
-#include <fstream>
 #include "benne_string.h"
 #define HELPERS "helpers.glsl"
 #define BASE "base.glsl"
@@ -79,10 +77,10 @@ int compile_vertex_shader(GLuint* vertex_shader) {
 
 // TODO (06 Apr 2020 sam): This all needs to be in some struct...
 // To be fair, I don't even know how this works correctly...
-char* fsh = read_file(HELPERS);
-char* fsb = read_file(BASE);
 
 int compile_fragment_shader(GLuint* fragment_shader, string* shader_source) {
+char* fsh = read_file(HELPERS);
+char* fsb = read_file(BASE);
     char* fragment_source_helpers = fsh;
     char* fragment_source_base = fsb;
     string fragment_source = empty_string();
@@ -134,10 +132,10 @@ int create_shader_program(GLuint* shader_program, GLuint* vertex_shader, GLuint*
 
 // TODO (06 Apr 2020 sam): This all needs to be in some struct...
 // To be fair, I don't even know how this works correctly...
-char* vs = read_file("glsl/text_vertex.glsl");
-char* fs = read_file("glsl/text_fragment.glsl");
 
 int compile_and_link_text_shader(uint* vertex_shader, uint* fragment_shader, uint* shader_program) {
+char* vs = read_file("glsl/text_vertex.glsl");
+char* fs = read_file("glsl/text_fragment.glsl");
     string vertex_source = string_from(vs);
     *vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(*vertex_shader, 1, &vertex_source.text, NULL);
