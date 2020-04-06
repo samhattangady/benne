@@ -77,9 +77,14 @@ int compile_vertex_shader(GLuint* vertex_shader) {
     return 0;
 }
 
+// TODO (06 Apr 2020 sam): This all needs to be in some struct...
+// To be fair, I don't even know how this works correctly...
+char* fsh = read_file(HELPERS);
+char* fsb = read_file(BASE);
+
 int compile_fragment_shader(GLuint* fragment_shader, string* shader_source) {
-    char* fragment_source_helpers = read_file(HELPERS);
-    char* fragment_source_base = read_file(BASE);
+    char* fragment_source_helpers = fsh;
+    char* fragment_source_base = fsb;
     string fragment_source = empty_string();
     append_sprintf(&fragment_source, fragment_source_header);
     append_sprintf(&fragment_source, fragment_source_helpers);
@@ -89,8 +94,8 @@ int compile_fragment_shader(GLuint* fragment_shader, string* shader_source) {
     *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(*fragment_shader, 1, &(fragment_source.text), NULL);
     glCompileShader(*fragment_shader);
-    free(fragment_source_helpers);
-    free(fragment_source_base);
+    // free(fragment_source_helpers);
+    // free(fragment_source_base);
     dispose_string(&fragment_source);
     return 0;
 }
@@ -124,8 +129,34 @@ int create_shader_program(GLuint* shader_program, GLuint* vertex_shader, GLuint*
         }
     }
     glUseProgram(*shader_program);
-    glDetachShader(*shader_program, *fragment_shader);
-    glDeleteShader(*fragment_shader);
     return 0;
 }
 
+// TODO (06 Apr 2020 sam): This all needs to be in some struct...
+// To be fair, I don't even know how this works correctly...
+char* vs = read_file("glsl/text_vertex.glsl");
+char* fs = read_file("glsl/text_fragment.glsl");
+
+int compile_and_link_text_shader(uint* vertex_shader, uint* fragment_shader, uint* shader_program) {
+    string vertex_source = string_from(vs);
+    *vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(*vertex_shader, 1, &vertex_source.text, NULL);
+    glCompileShader(*vertex_shader);
+    test_shader_compilation(vertex_shader);
+
+    string fragment_source = string_from(fs);
+    *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(*fragment_shader, 1, &fragment_source.text, NULL);
+    glCompileShader(*fragment_shader);
+    test_shader_compilation(fragment_shader);
+
+    *shader_program = glCreateProgram();
+    glAttachShader(*shader_program, *vertex_shader);
+    glAttachShader(*shader_program, *fragment_shader);
+    glBindFragDataLocation(*shader_program, 0, "color");
+    glLinkProgram(*shader_program);
+    glUseProgram(*shader_program);
+    dispose_string(&vertex_source);
+    dispose_string(&fragment_source);
+    return 0;
+}

@@ -1,5 +1,6 @@
 #include "ui.h"
 
+/*
 void add_child(df_heap* heap, unsigned int parent_index) {
     attach_node(heap,
         generate_sphere(
@@ -10,6 +11,15 @@ void add_child(df_heap* heap, unsigned int parent_index) {
         { DISTANCE_FIELD_BLEND_ADD, 0.2 },
         parent_index
     );
+}
+
+void float_input(float** shape_data_ptr, unsigned int index, char* label, float min, float max) {
+    float* shape_data = *shape_data_ptr;
+    static char buffer[64] = "";
+    sprintf(buffer, "%f", shape_data[index]);
+    ImGui::SetNextItemWidth(200);
+    ImGui::InputText(label, buffer, 64, ImGuiInputTextFlags_CharsDecimal);
+    sscanf(buffer, "%f", &shape_data[index]);
 }
 
 int get_op_id(df_operation_enum op) {
@@ -37,26 +47,57 @@ void draw_node_editor(ui_state* state) {
     ImGui::Begin("Node Editor");
     string name = string_from("Active Shape: ");
     append_sprintf(&name, " %i", index);
-    ImGui::Button(name.text);
+    ImGui::Text(name.text);
+    ImGui::SameLine();
     df_node* node = &state->heap->nodes[index];
     df_shape* shape = &state->heap->shapes[index];
+    df_operation* operation = &state->heap->operations[index];
+    float* shape_data = state->heap->shapes[index].data;
+
     int shape_type = get_shape_type(shape->type);
+    ImGui::SetNextItemWidth(200);
     ImGui::Combo("Shape", &shape_type, "Empty\0Sphere\0Box\0");
+    ImGui::SameLine();
     switch (shape_type) {
         case 0: shape->type = EMPTY; break;
         case 1: shape->type = SPHERE; break;
         case 2: shape->type = ROUNDED_RECTANGLE; break;
     }
-    df_operation* operation = &state->heap->operations[index];
     int op_id = get_op_id(operation->operation);
+    ImGui::SetNextItemWidth(200);
     ImGui::Combo("Op", &op_id, "Add\0Subtract\0Union\0");
+    ImGui::SameLine();
     switch (op_id) {
         case 0: operation->operation = DISTANCE_FIELD_BLEND_ADD; break;
         case 1: operation->operation = DISTANCE_FIELD_BLEND_SUBTRACT; break;
         case 2: operation->operation = DISTANCE_FIELD_BLEND_UNION; break;
     }
-    float* shape_data = state->heap->shapes[index].data;
+    ImGui::SetNextItemWidth(200);
     ImGui::SliderFloat("Ex", &(operation->extent), -0.0, 1.0);
+
+    if (ImGui::TreeNode("Text Inputs")) {
+        float_input(&shape_data, 0, "x_pos", -1.0, 1.0);
+        ImGui::SameLine();
+        float_input(&shape_data, 1, "y_pos", -1.0, 1.0);
+        ImGui::SameLine();
+        float_input(&shape_data, 2, "z_pos", -1.0, 1.0);
+        ImGui::Separator();
+        float_input(&shape_data, 3, "x_rad", -1.0, 1.0);
+        ImGui::SameLine();
+        float_input(&shape_data, 4, "y_rad", -1.0, 1.0);
+        ImGui::SameLine();
+        float_input(&shape_data, 5, "z_rad", -1.0, 1.0);
+        ImGui::Separator();
+        float_input(&shape_data, 6, "x_siz", -1.0, 1.0);
+        ImGui::SameLine();
+        float_input(&shape_data, 7, "y_siz", -1.0, 1.0);
+        ImGui::SameLine();
+        float_input(&shape_data, 8, "z_siz", -1.0, 1.0);
+        ImGui::Separator();
+        float_input(&shape_data, 9, "radiu", -1.0, 1.0);
+        ImGui::Separator();
+        ImGui::TreePop();
+    }
     ImGui::SliderFloat3("Position", &shape_data[0], -1.0, 1.0);
     ImGui::SliderFloat3("Angle", &shape_data[3], -4.0, 4.0);
     ImGui::SliderFloat3("Size",  &shape_data[6],  0.0, 1.0);
@@ -101,3 +142,4 @@ void draw_shape_selector(ui_state* state, unsigned int index) {
    draw_node(state, index);
    ImGui::End();
 }
+*/

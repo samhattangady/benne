@@ -42,8 +42,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     p.y *= iResolution.y/iResolution.x;
 
     float mouseX = ((iMouse.x/iResolution.x)-0.5) * 2.0 * 3.14159/2.0;
-    mouseX = -0.0;
-    //mouseX = 0.4*sin(iTime/3.6);
+    // mouseX = -0.0;
+    // mouseX = 0.4*sin(iTime/3.6);
     vec3 cameraPosition = vec3(0.0, 0.0, -3.0);
     vec3 planePosition = vec3(p, 1.0) + cameraPosition;
 
@@ -51,7 +51,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     cameraPosition.xz = camRotate * cameraPosition.xz;
     planePosition.xz = camRotate * planePosition.xz;
 
-    float yRotate = 0.0;
+    float yRotate = -((iMouse.y/iResolution.y)-0.5) * 2.0 * 3.14159/2.0;
     //yRotate = 0.2*sin(iTime/4.2);
     camRotate = mat2(cos(yRotate), -sin(yRotate), sin(yRotate), cos(yRotate));
     cameraPosition.yz = camRotate * cameraPosition.yz;
@@ -103,5 +103,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     // gamma correction
     color = pow( color, vec3(1.0/2.2) );
     fragColor = vec4(color,1.0);
+
 }
 
