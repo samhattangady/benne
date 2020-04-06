@@ -1,0 +1,1 @@
+time g++ -o benne  shaders.cpp distance_fields.cpp cb_ui.c benne_string.cpp ui.cpp benne.cpp -I/usr/include/freetype2 -I/usr/include/libpng16 -lfreetype -lm -lglfw -lGL -lGLEW -Wno-write-strings && ./benne; rm ./benne
