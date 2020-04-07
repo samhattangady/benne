@@ -30,6 +30,13 @@ typedef struct cb_ui_state {
     ft_char glyphs[128];
 } cb_ui_state;
 
+typedef struct {
+    // TODO (07 Apr 2020 sam): How can this use less memory?
+    uint down;
+    float down_x;
+    float down_y;
+} mouse_state_struct;
+
 int init_ui(cb_ui_state* state);
 int cb_ui_render_text(cb_ui_state* state, char* text, float x, float y);
 int init_gl_values(cb_ui_state* state);

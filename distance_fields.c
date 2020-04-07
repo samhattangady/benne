@@ -5,6 +5,12 @@
 #include "distance_fields.h"
 #include "shaders.h"
 
+int empty_distance_field(int id, string* current_source) {
+    char* base = "d%i = vec2(sdfSphere(pos, 0.0), 0.0);\n";
+    append_sprintf(current_source, base, id);
+    return 0;
+}
+
 int sphere_distance_field(int id, df_shape* sphere, string* current_source) {
     char* base = "d%i = vec2(sdfSphere(pos, %.3f), %.3f);\n";
     append_sprintf(current_source, base, id,
@@ -23,6 +29,7 @@ int rectangle_distance_field(int id, df_shape* shape, string* current_source) {
 int append_distance_field(df_heap* heap, string* current_source, unsigned int index, int depth) {
     switch (heap->shapes[index].type) {
         case EMPTY:
+            empty_distance_field(depth, current_source);
             return 0;
         case SPHERE:
             sphere_distance_field(depth, &heap->shapes[index], current_source);

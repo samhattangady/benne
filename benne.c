@@ -89,17 +89,21 @@ int main(int argc, char** argv) {
     GLint position_attribute;
     double xpos, ypos, imousex, imousey;
 
-    struct timeval start_time;
-    struct timeval current_time;
-    struct timeval previous_time;
+    clock_t start_time;
+    clock_t current_time;
+    clock_t previous_time;
+    struct timeval c;
+    double frame_time = 0.0;
     char buffer[BUF_LEN];
     int events_length, poll_return;
     float seconds_elapsed = 0.0f;
-    float frame_time = 0.0f;
     int inotify_file_descriptor = inotify_init();
-    gettimeofday(&start_time, NULL);
+    start_time = clock();
     previous_time = start_time;
     char fps_counter[20];
+    int mouse_button_state;
+    mouse_state_struct mouse_state = {0, 0.0, 0.0};
+    float mouse_dx, mouse_dy;
 
     // ui_state state = {&heap, 0};
 
@@ -109,6 +113,8 @@ int main(int argc, char** argv) {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
+        gettimeofday(&c, NULL);
+
         generate_frag_shader(&heap, &shader_source_d);
         compile_fragment_shader(&fragment_shader, &shader_source_d);
         if (test_shader_compilation(&fragment_shader))
@@ -116,19 +122,36 @@ int main(int argc, char** argv) {
         if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader))
             return -1;
 
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, GL_TRUE);
+
         glfwGetCursorPos(window, &xpos, &ypos);
         imousex = xpos;
         imousey = ypos;
 
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, GL_TRUE);
-        glfwPollEvents();
+        // gettimeofday(&frag_start, NULL);
+        // gettimeofday(&frag_end, NULL);
+        // frag_time = (frag_end.tv_sec - frag_start.tv_sec) +
+        //             ((frag_end.tv_usec - frag_start.tv_usec) / 1000000.0);
+        // printf("took %f seconds to compile fragment shader\n", frag_time);
 
-        gettimeofday(&current_time, NULL);
-        frame_time = (current_time.tv_sec - previous_time.tv_sec) +
-                     ((current_time.tv_usec - previous_time.tv_usec) / 1000000.0);
-        previous_time = current_time;
-        seconds_elapsed += frame_time;
+        mouse_button_state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        if (mouse_button_state == GLFW_PRESS) {
+            if (mouse_state.down == 0)
+                mouse_state.down = 1;
+            else {
+                // rotate the heap[0] object.
+                mouse_dx = xpos - mouse_state.down_x;
+                mouse_dy = ypos - mouse_state.down_y;
+                heap.shapes[0].data[4] -= mouse_dx/window_width*3.1415;
+                heap.shapes[0].data[3] -= mouse_dy/window_height*3.1415;
+                printf("took %f seconds to compile fragment shader\n", frame_time);
+            }
+            mouse_state.down_x = xpos;
+            mouse_state.down_y = ypos;
+        }
+        if (mouse_button_state == GLFW_RELEASE)
+            mouse_state.down = 0;
 
         glUseProgram(shader_program);
         glLinkProgram(shader_program);
@@ -142,15 +165,21 @@ int main(int argc, char** argv) {
         uni_mouse = glGetUniformLocation(shader_program, "iMouse");
         uni_resolution = glGetUniformLocation(shader_program, "iResolution");
         glUniform1f(uni_time, seconds_elapsed);
-        glUniform2f(uni_mouse, imousex, imousey);
+        // glUniform2f(uni_mouse, imousex, imousey);
+        glUniform2f(uni_mouse, window_width/2.0, window_height/2.0);
         glUniform3f(uni_resolution, window_width, window_height, 0.0);
         position_attribute = glGetAttribLocation(shader_program, "position");
         glEnableVertexAttribArray(position_attribute);
         glVertexAttribPointer(position_attribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
+        current_time = clock();
+        frame_time = (double) (current_time-previous_time) / CLOCKS_PER_SEC;
+        previous_time = current_time;
+        seconds_elapsed += frame_time;
+
         sprintf(&fps_counter, "FPS: %f", 1.0/frame_time);
-        cb_ui_render_text(&benne_ui, fps_counter, 0.0, 0.0);
+        cb_ui_render_text(&benne_ui, fps_counter, 16.0, window_height-26.0);
 
         glfwSwapBuffers(window);
     }
