@@ -31,7 +31,7 @@ typedef struct cb_ui_state {
 } cb_ui_state;
 
 int init_ui(cb_ui_state* state);
-int cb_ui_render_text(cb_ui_state* state, char* text);
+int cb_ui_render_text(cb_ui_state* state, char* text, float x, float y);
 int init_gl_values(cb_ui_state* state);
 int init_character_glyphs(cb_ui_state* state);
 

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "benne_string.h"
+#include "cb_string.h"
 #include "distance_fields.h"
 
 int main(int, char**) {

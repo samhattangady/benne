@@ -43,8 +43,6 @@ int main(int argc, char** argv) {
 
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
-char* vs = read_file("glsl/text_vertex.glsl");
-char* fs = read_file("glsl/text_fragment.glsl");
     if (GLEW_OK != err) {
         fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
         return -1;
@@ -71,16 +69,16 @@ char* fs = read_file("glsl/text_fragment.glsl");
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
-    string shader_source;
+    shader_source_data shader_source_d;
 
-    compile_vertex_shader(&vertex_shader);
+    init_shader_source_data(&shader_source_d);
+    compile_vertex_shader(&vertex_shader, &shader_source_d);
     if (test_shader_compilation(&vertex_shader))
         return -1;
-    shader_source = generate_frag_shader(&heap);
-    compile_fragment_shader(&fragment_shader, &shader_source);
+    generate_frag_shader(&heap, &shader_source_d);
+    compile_fragment_shader(&fragment_shader, &shader_source_d);
     if (test_shader_compilation(&fragment_shader))
         return -1;
-    dispose_string(&shader_source);
     if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader))
         return -1;
     printf("creating instance?\n...");
@@ -93,11 +91,15 @@ char* fs = read_file("glsl/text_fragment.glsl");
 
     struct timeval start_time;
     struct timeval current_time;
+    struct timeval previous_time;
     char buffer[BUF_LEN];
     int events_length, poll_return;
     float seconds_elapsed = 0.0f;
+    float frame_time = 0.0f;
     int inotify_file_descriptor = inotify_init();
     gettimeofday(&start_time, NULL);
+    previous_time = start_time;
+    char fps_counter[20];
 
     // ui_state state = {&heap, 0};
 
@@ -107,11 +109,10 @@ char* fs = read_file("glsl/text_fragment.glsl");
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        shader_source = generate_frag_shader(&heap);
-        compile_fragment_shader(&fragment_shader, &shader_source);
+        generate_frag_shader(&heap, &shader_source_d);
+        compile_fragment_shader(&fragment_shader, &shader_source_d);
         if (test_shader_compilation(&fragment_shader))
             return -1;
-        dispose_string(&shader_source);
         if (create_shader_program(&shader_program, &vertex_shader, &fragment_shader))
             return -1;
 
@@ -124,8 +125,10 @@ char* fs = read_file("glsl/text_fragment.glsl");
         glfwPollEvents();
 
         gettimeofday(&current_time, NULL);
-        seconds_elapsed = (current_time.tv_sec - start_time.tv_sec) +
-                         ((current_time.tv_usec - start_time.tv_usec) / 1000000.0);
+        frame_time = (current_time.tv_sec - previous_time.tv_sec) +
+                     ((current_time.tv_usec - previous_time.tv_usec) / 1000000.0);
+        previous_time = current_time;
+        seconds_elapsed += frame_time;
 
         glUseProgram(shader_program);
         glLinkProgram(shader_program);
@@ -146,7 +149,8 @@ char* fs = read_file("glsl/text_fragment.glsl");
         glVertexAttribPointer(position_attribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        cb_ui_render_text(&benne_ui, "benne");
+        sprintf(&fps_counter, "FPS: %f", 1.0/frame_time);
+        cb_ui_render_text(&benne_ui, fps_counter, 0.0, 0.0);
 
         glfwSwapBuffers(window);
     }

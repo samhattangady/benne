@@ -1,6 +1,7 @@
 #ifndef DISTANCE_FIELDS_DEFINED
 #define DISTANCE_FIELDS_DEFINED
-#include "benne_string.h"
+#include "cb_string.h"
+#include "shaders.h"
 
 // TODO (23 Feb 2020 sam): Should non blend operations be separate options?
 typedef enum DISTANCE_FIELD_OPERATIONS {
@@ -47,7 +48,7 @@ typedef struct df_heap {
     df_node* nodes;
 } df_heap;
 
-string generate_frag_shader(df_heap* heap);
+int generate_frag_shader(df_heap* heap, shader_source_data* source);
 unsigned int attach_node (df_heap* heap,
                        unsigned int shape_index, 
                        df_operation operation,

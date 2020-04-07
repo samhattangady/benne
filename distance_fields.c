@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "benne_string.h"
+#include "cb_string.h"
 #include "distance_fields.h"
+#include "shaders.h"
 
 int sphere_distance_field(int id, df_shape* sphere, string* current_source) {
     char* base = "d%i = vec2(sdfSphere(pos, %.3f), %.3f);\n";
@@ -87,17 +88,17 @@ int distance_field_caller(df_heap* heap, string* source, unsigned int index, uns
     return 0;
 }
 
-string generate_frag_shader(df_heap* heap) {
-    string frag_shader = empty_string();
-    append_sprintf(&frag_shader, "vec4 distanceField(vec3 pos) {\n");
-    append_sprintf(&frag_shader, "float d = 10000.0;\nfloat material = 0.0;\nvec3 in_pos=pos;\n");
+int generate_frag_shader(df_heap* heap, shader_source_data* source) {
+    clear_string(&source->fragment_computed);
+    append_sprintf(&source->fragment_computed, "vec4 distanceField(vec3 pos) {\n");
+    append_sprintf(&source->fragment_computed, "float d = 10000.0;\nfloat material = 0.0;\nvec3 in_pos=pos;\n");
     // TODO (10 Mar 2020 sam): Figure out a way to get the actual deepest node in tree
-    append_sprintf(&frag_shader, "vec2 d0, d1, d2, d3, d4, d5, d6, d7;\n");
-    append_sprintf(&frag_shader, "vec3 p0, p1, p2, p3, p4, p5, p6, p7;\n");
-    append_sprintf(&frag_shader, "vec3 r0, r1, r2, r3, r4, r5, r6, r7;\n");
-    distance_field_caller(heap, &frag_shader, 0, 0);
-    append_sprintf(&frag_shader, "return vec4(d0.x, material, 0.0, 0.0);\n}\n");
-    return frag_shader;
+    append_sprintf(&source->fragment_computed, "vec2 d0, d1, d2, d3, d4, d5, d6, d7;\n");
+    append_sprintf(&source->fragment_computed, "vec3 p0, p1, p2, p3, p4, p5, p6, p7;\n");
+    append_sprintf(&source->fragment_computed, "vec3 r0, r1, r2, r3, r4, r5, r6, r7;\n");
+    distance_field_caller(heap, &source->fragment_computed, 0, 0);
+    append_sprintf(&source->fragment_computed, "return vec4(d0.x, material, 0.0, 0.0);\n}\n");
+    return 0;
 }
 
 // To set the node to have no parent, set the parent index same as shape index
@@ -232,6 +233,7 @@ int simplify_heap(df_heap* heap) {
     int heap_size = heap->filled;
     int i, j, k;
     // Check all the children to see which nodes are used.
+    printf("mallocing... to simplify heap? 1\n");
     int* used = (int*) malloc(sizeof(int) * heap_size);
     for (i=0; i<heap_size; i++) 
         used[i] = 0;
@@ -244,6 +246,7 @@ int simplify_heap(df_heap* heap) {
         } 
     }
     int new_size = 0;
+    printf("mallocing... to simplify heap? 2\n");
     int* unused = (int*) malloc(sizeof(int) * heap_size);
     for (int i=0; i<heap_size; i++) {
         if (used[i] > 0)

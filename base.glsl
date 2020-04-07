@@ -99,10 +99,12 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         	color = vec3(0.15, 0.02, 0.01);
             color += 0.1 * smoothstep(0.4, 1.0, pow(light, 5.0));
         }
+        float edge = dot(lookingDirection, normal);
+        if ((edge > -0.1) && (edge < 0.1))
+            color = vec3(1.0);
     }
     // gamma correction
     color = pow( color, vec3(1.0/2.2) );
-    fragColor = vec4(color,1.0);
-
+    fragColor = vec4(color, 1.0);
 }
 

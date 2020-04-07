@@ -77,15 +77,13 @@ int init_ui(cb_ui_state* state) {
     return 0;
 }
 
-int cb_ui_render_text(cb_ui_state* state, char* text) {
+int cb_ui_render_text(cb_ui_state* state, char* text, float x, float y) {
     glUseProgram(state->values.shader_program);
     glLinkProgram(state->values.shader_program);
     glUniform2f(glGetUniformLocation(state->values.shader_program, "window_size"), 1600, 900);
     glUniform3f(glGetUniformLocation(state->values.shader_program, "textColor"), 1, 1, 1);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(state->values.vao);
-    float x = 1200.0;
-    float y = 500.0;
     for (int i=0; i<strlen(text); i++) {
         // TODO (05 Apr 2020 sam): Convert to using a single bitmap texture for this
         char c = text[i];

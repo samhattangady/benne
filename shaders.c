@@ -9,14 +9,16 @@
 #include <sys/inotify.h>
 #include <sys/unistd.h>
 #include <poll.h>
-#include "benne_string.h"
+#include "cb_string.h"
+#include "shaders.h"
 #define HELPERS "helpers.glsl"
 #define BASE "base.glsl"
 
 // TODO (27 Feb 2020 sam): Move this somewhere else. Doesn't really make so much
 // sense here. Also should probably return a string?
-char* read_file(char *filename) {
+string read_file(char* filename) {
     // https://stackoverflow.com/a/3464656/5453127
+    printf("reading file %s\n", filename);
     char *buffer = NULL;
     int string_size, read_size;
     FILE *handler = fopen(filename, "r");
@@ -24,16 +26,20 @@ char* read_file(char *filename) {
         fseek(handler, 0, SEEK_END);
         string_size = ftell(handler);
         rewind(handler);
+        printf("mallocing... to read file\n");
         buffer = (char*) malloc(sizeof(char) * (string_size + 5) );
         read_size = fread(buffer, sizeof(char), string_size, handler);
         buffer[string_size] = '\0';
         if (string_size != read_size) {
-            free(buffer);
-            buffer = NULL;
+            // TODO (02 Apr 2020 sam): Raise some error here?
+            // free(buffer);
+            // buffer = NULL;
         }
         fclose(handler);
     }
-    return buffer;
+    string result = string_from(buffer);
+    free(buffer);
+    return result;
 }
 
 // Shader sources
@@ -68,33 +74,42 @@ void main()\n\
 }\n\
 ";
 
-int compile_vertex_shader(GLuint* vertex_shader) {
+int init_shader_source_data(shader_source_data* source) {
+    string vertex_shader = string_from(vertex_source);
+    string fragment_source = empty_string();
+    string fragment_header = string_from(fragment_source_header);
+    string fragment_helpers = read_file(HELPERS);
+    append_string(&fragment_header, &fragment_helpers);
+    string fragment_computed = empty_string();
+    string fragment_footer = read_file(BASE);
+    append_chars(&fragment_footer, fragment_source_footer);
+    shader_source_data sd = {
+        vertex_shader,
+        fragment_source,
+        fragment_header,
+        fragment_computed,
+        fragment_footer
+    };
+    *source = sd;
+    dispose_string(&fragment_helpers);
+    return 0;
+}
+
+int compile_vertex_shader(GLuint* vertex_shader, shader_source_data* source) {
     *vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(*vertex_shader, 1, &vertex_source, NULL);
+    glShaderSource(*vertex_shader, 1, &source->vertex_source, NULL);
     glCompileShader(*vertex_shader);
     return 0;
 }
 
-// TODO (06 Apr 2020 sam): This all needs to be in some struct...
-// To be fair, I don't even know how this works correctly...
-
-int compile_fragment_shader(GLuint* fragment_shader, string* shader_source) {
-char* fsh = read_file(HELPERS);
-char* fsb = read_file(BASE);
-    char* fragment_source_helpers = fsh;
-    char* fragment_source_base = fsb;
-    string fragment_source = empty_string();
-    append_sprintf(&fragment_source, fragment_source_header);
-    append_sprintf(&fragment_source, fragment_source_helpers);
-    append_string(&fragment_source, shader_source);
-    append_sprintf(&fragment_source, fragment_source_base);
-    append_sprintf(&fragment_source, fragment_source_footer);
+int compile_fragment_shader(GLuint* fragment_shader, shader_source_data* source) {
+    clear_string(&source->fragment_source);
+    append_string(&source->fragment_source, &source->fragment_header);
+    append_string(&source->fragment_source, &source->fragment_computed);
+    append_string(&source->fragment_source, &source->fragment_footer);
     *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(*fragment_shader, 1, &(fragment_source.text), NULL);
+    glShaderSource(*fragment_shader, 1, &source->fragment_source.text, NULL);
     glCompileShader(*fragment_shader);
-    // free(fragment_source_helpers);
-    // free(fragment_source_base);
-    dispose_string(&fragment_source);
     return 0;
 }
 
@@ -134,27 +149,25 @@ int create_shader_program(GLuint* shader_program, GLuint* vertex_shader, GLuint*
 // To be fair, I don't even know how this works correctly...
 
 int compile_and_link_text_shader(uint* vertex_shader, uint* fragment_shader, uint* shader_program) {
-char* vs = read_file("glsl/text_vertex.glsl");
-char* fs = read_file("glsl/text_fragment.glsl");
-    string vertex_source = string_from(vs);
-    *vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(*vertex_shader, 1, &vertex_source.text, NULL);
-    glCompileShader(*vertex_shader);
-    test_shader_compilation(vertex_shader);
-
-    string fragment_source = string_from(fs);
-    *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(*fragment_shader, 1, &fragment_source.text, NULL);
-    glCompileShader(*fragment_shader);
-    test_shader_compilation(fragment_shader);
-
-    *shader_program = glCreateProgram();
-    glAttachShader(*shader_program, *vertex_shader);
-    glAttachShader(*shader_program, *fragment_shader);
-    glBindFragDataLocation(*shader_program, 0, "color");
-    glLinkProgram(*shader_program);
-    glUseProgram(*shader_program);
-    dispose_string(&vertex_source);
-    dispose_string(&fragment_source);
+     string vertex_source = read_file("glsl/text_vertex.glsl");
+     *vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+     glShaderSource(*vertex_shader, 1, &vertex_source.text, NULL);
+     glCompileShader(*vertex_shader);
+     test_shader_compilation(vertex_shader);
+ 
+     string fragment_source = read_file("glsl/text_fragment.glsl");
+     *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+     glShaderSource(*fragment_shader, 1, &fragment_source.text, NULL);
+     glCompileShader(*fragment_shader);
+     test_shader_compilation(fragment_shader);
+ 
+     *shader_program = glCreateProgram();
+     glAttachShader(*shader_program, *vertex_shader);
+     glAttachShader(*shader_program, *fragment_shader);
+     glBindFragDataLocation(*shader_program, 0, "color");
+     glLinkProgram(*shader_program);
+     glUseProgram(*shader_program);
+     dispose_string(&vertex_source);
+     dispose_string(&fragment_source);
     return 0;
 }
